@@ -113,6 +113,8 @@ to 17 MB — a 900-fold reduction — by aggregating away detail the analysis ne
 | `prep_07_purplebook.py` | Parses biologics; flags biosimilar and interchangeable status | `purplebook_biologics.parquet` |
 | `prep_08_entity_resolution.py` | Matches free-text drug names to FDA ingredients | `trial_drug_resolution.parquet` |
 | `prep_09_modality.py` | Classifies each trial as biologic or small molecule | adds `modality` |
+| `prep_10_sponsor_assignee.py` | Rolls sponsors up to corporate groups for the patent query | `bigquery_assignee_names.csv` |
+| `prep_11_ip_index.py` | Builds the composite IP strength index used for the RQ1 split | `ip_index.parquet` |
 
 ### Three cleaning decisions that changed the results
 
@@ -129,6 +131,11 @@ years. So recent years look artificially bad. The share of trials with a known o
 terminated trials versus 86 for completed. Used as a predictor it achieves AUC 0.79, which looks
 impressive and is entirely circular. Among the few records still showing *planned* enrollment it
 achieves 0.47 — no signal at all. Excluded.
+
+**(d) Orange Book patent counts were double-counted.** Category counts were summed over product
+rows while the total used a distinct count, and one patent is listed against 3.15 products on
+average. The evergreening ratio came out above 1.0 — impossible for a ratio. Now de-duplicated to
+patent level.
 
 **(c) Safety is measured by disproportionality, not counts.** FAERS has no denominator: a drug with
 more reports may simply be more widely used. Raw counts are meaningless, so the pipeline computes
@@ -233,6 +240,32 @@ python scripts/analysis/score_precision.py data/validation
 
 If a method scores below 0.85, **fix the rule and re-run the resolver, then draw a fresh sample**.
 Re-scoring the same sample after changing rules is circular.
+
+### The IP strength index (RQ1 only)
+
+RQ1 forces a binary split because a two-proportion test needs two groups. RQ2–RQ4 keep the
+components **separate** — dichotomising throws away information that was expensive to collect.
+
+Five dimensions, with scale-independent measures carrying the weight and portfolio *scale*
+down-weighted to 0.5 because it is largely a proxy for firm size:
+
+| Dimension | Measure | Weight |
+|---|---|---|
+| Quality | forward citations per patent | 1.0 |
+| Breadth | INPADOC family size and country count | 1.0 |
+| Term | patent life remaining at trial start | 1.0 |
+| Focus | share of portfolio in A61K/A61P | 1.0 |
+| Scale | portfolio count | 0.5 |
+
+Components are winsorised, then z-scored **within trial-start-year cohort**, because citations
+and counts accumulate with age and would otherwise register exposure time as IP strength. The
+evergreening ratio is deliberately **excluded**: a high secondary-patent share can mean
+sophisticated lifecycle management or a primary patent too weak to rely on, and a component of
+ambiguous sign corrupts a strength measure. Trials with no listed patent are **unobserved, not
+weak** — coding them zero would invent a finding.
+
+> **Not spec-complete yet.** Only TERM is available; the other four need BigQuery. The script
+> prints a warning and writes `ip_index_spec_complete = 0`. No headline RQ1 result until then.
 
 ---
 
