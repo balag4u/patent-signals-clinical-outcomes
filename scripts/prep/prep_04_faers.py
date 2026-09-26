@@ -121,8 +121,11 @@ df["b"], df["c"], df["d"] = b, c, d
 with np.errstate(divide="ignore", invalid="ignore"):
     df["prr"] = (a / (a + b)) / (c / (c + d))
     df["ror"] = (a * d) / (b * c)
-    exp = (a + b) * (a + c) / N
-    df["chi2"] = (np.abs(a - exp) - 0.5) ** 2 * N / ((a+b)*(c+d)*(a+c)*(b+d)/N**2) / N
+    # Yates-corrected chi-square for a 2x2 table:
+    #   X2 = N (|ad - bc| - N/2)^2 / ((a+b)(c+d)(a+c)(b+d))
+    tot = a + b + c + d
+    df["chi2"] = (tot * (np.abs(a*d - b*c) - tot/2)**2
+                  / ((a+b) * (c+d) * (a+c) * (b+d)))
     se = np.sqrt(1/a + 1/b + 1/c + 1/d)
     df["ror_lo"] = np.exp(np.log(df.ror) - 1.96*se)
     df["ror_hi"] = np.exp(np.log(df.ror) + 1.96*se)
@@ -135,10 +138,18 @@ print(f"  drug-event pairs : {len(df):,}  -> {os.path.getsize(p)/1e6:.1f} MB")
 print(f"  flagged signals  : {int(df.is_signal.sum()):,}")
 
 # ------------------------------------------------------------- drug burden
+# PRR is unbounded when a cell is sparse (a=1 against a rare event gives a
+# meaningless ratio), so summaries use the MEDIAN and are restricted to cells
+# with at least 3 reports - the same threshold as the signal criterion.
+ev = df[df.a >= 3]
 burden = df.groupby("ingredient").agg(
     n_events=("pt", "nunique"), n_reports=("a", "sum"),
-    n_signals=("is_signal", "sum"), mean_prr=("prr", "mean"),
-    max_prr=("prr", "max")).reset_index()
+    n_signals=("is_signal", "sum")).reset_index()
+burden = burden.merge(
+    ev.groupby("ingredient").agg(median_prr=("prr", "median"),
+                                 p90_prr=("prr", lambda x: x.quantile(0.9)),
+                                 n_evaluable=("prr", "size")).reset_index(),
+    on="ingredient", how="left")
 burden["n_unique_reports"] = burden.ingredient.map(lambda i: len(drug_rep.get(i, ())))
 burden["nda_numbers"] = burden.ingredient.map(
     lambda i: "|".join(sorted(nda_map.get(i, ()))[:10]))
@@ -148,13 +159,13 @@ burden.to_parquet(p2, index=False, compression="zstd")
 print(f"  ingredients      : {len(burden):,}  -> {os.path.getsize(p2)/1e6:.1f} MB")
 
 # ---------------------------------------------------------- sponsor burden
-prr_by_ing = burden.set_index("ingredient").mean_prr
+prr_by_ing = burden.set_index("ingredient").median_prr
 rows = []
 for s, ings in spons_drug.items():
     v = prr_by_ing.reindex(list(ings)).dropna()
     sig = burden.set_index("ingredient").n_signals.reindex(list(ings)).fillna(0)
     rows.append({"mfr_sndr": s, "n_ingredients": len(ings),
-                 "sponsor_prr_burden": float(v.mean()) if len(v) else np.nan,
+                 "sponsor_prr_burden": float(v.median()) if len(v) else np.nan,
                  "sponsor_total_signals": int(sig.sum())})
 sp = pd.DataFrame(rows).sort_values("n_ingredients", ascending=False)
 p3 = os.path.join(OUT, "faers_sponsor_burden.parquet")

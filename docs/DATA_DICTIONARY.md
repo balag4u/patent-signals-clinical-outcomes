@@ -85,6 +85,47 @@ Types are as stored in Parquet.
 | `fda_has_orphan` | int64 | 29,351 | 0 |
 | `fda_lifecycle_years` | float64 | 26,641 | 17.86 |
 
+## `faers_drug_burden.parquet`
+
+13,868 rows x 8 columns (0.40 MB)
+
+| Column | Type | Non-null | Example |
+|---|---|---|---|
+| `ingredient` | object | 13,868 | (1-743)-(1638-2332)-BLOOD-COAGULATION  |
+| `n_events` | int64 | 13,868 | 551 |
+| `n_reports` | int64 | 13,868 | 2290 |
+| `n_signals` | int64 | 13,868 | 72 |
+| `median_prr` | float64 | 7,997 | 3.723303699154947 |
+| `p90_prr` | float64 | 7,997 | 102.94036833637033 |
+| `n_evaluable` | float64 | 7,997 | 138.0 |
+| `signal_rate` | float64 | 13,868 | 0.1307 |
+
+## `faers_group_burden.parquet`
+
+4,075 rows x 6 columns (0.11 MB)
+
+| Column | Type | Non-null | Example |
+|---|---|---|---|
+| `corporate_group` | object | 4,075 |  |
+| `n_trials` | int64 | 4,075 | 33 |
+| `n_ingredients` | int64 | 4,075 | 9 |
+| `sponsor_prr_burden` | float64 | 4,075 | 597.1224611351684 |
+| `sponsor_total_signals` | float64 | 4,075 | 1865.0 |
+| `sponsor_mean_signal_rate` | float64 | 4,075 | 0.11822424242424241 |
+
+## `faers_sponsor_burden.parquet`
+
+4,276 rows x 6 columns (0.12 MB)
+
+| Column | Type | Non-null | Example |
+|---|---|---|---|
+| `lead_sponsor` | object | 4,276 | 307 Hospital of PLA |
+| `n_trials` | int64 | 4,276 | 1 |
+| `n_ingredients` | int64 | 4,276 | 1 |
+| `sponsor_prr_burden` | float64 | 4,276 | 6.573291287321339 |
+| `sponsor_total_signals` | float64 | 4,276 | 110.0 |
+| `sponsor_mean_signal_rate` | float64 | 4,276 | 0.2022 |
+
 ## `ip_index.parquet`
 
 106,311 rows x 10 columns (0.75 MB)
