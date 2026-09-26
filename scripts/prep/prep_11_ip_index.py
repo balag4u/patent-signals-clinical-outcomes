@@ -54,13 +54,22 @@ DRUG = {
     "ob_term_remaining_yrs":  "exclusivity runway at trial start",
     "ob_n_exclusivities":     "regulatory exclusivity grants",
 }
-# absorbed automatically once the BigQuery pull lands
-SPONSOR = {
-    "citations_per_patent":   "patent quality (scale-independent)",
-    "family_n_countries":     "geographic breadth",
-    "assignee_pharma_share":  "portfolio focus in A61K/A61P",
-    "assignee_portfolio_size":"portfolio scale (confounded with firm size)",
+# Sponsor-level index: the PRIMARY measure once the BigQuery pull lands.
+# Scale-independent components are listed first and carry equal weight with each
+# other; portfolio SCALE is deliberately down-weighted because it is confounded
+# with firm size (see SCALE_WEIGHT below).
+SPONSOR_SCALE_FREE = {
+    "citations_per_patent":    "QUALITY - forward citations per patent",
+    "family_size":             "BREADTH - INPADOC family size",
+    "family_n_countries":      "BREADTH - distinct jurisdictions",
+    "assignee_pharma_share":   "FOCUS - share of portfolio in A61K/A61P",
+    "sponsor_term_remaining":  "TERM - mean patent life remaining at trial start",
 }
+SPONSOR_SCALE = {
+    "assignee_portfolio_size": "SCALE - portfolio count (confounded with firm size)",
+}
+SCALE_WEIGHT = 0.5      # scale counts half, so the index is not a firm-size proxy
+SPONSOR = {**SPONSOR_SCALE_FREE, **SPONSOR_SCALE}
 
 def zcohort(s, cohort):
     """winsorise, log-compress counts, then z-score within cohort"""
@@ -72,12 +81,13 @@ def zcohort(s, cohort):
     g = x.groupby(cohort)
     return (x - g.transform("mean")) / g.transform("std").replace(0, np.nan)
 
-def build(cols, label):
+def build(cols, label, weights=None):
     have = [c for c in cols if c in df.columns and df[c].notna().any()]
     if not have:
         print(f"  {label}: no components present - skipped"); return None, []
     Z = pd.DataFrame({c: zcohort(df[c], df.start_year) for c in have})
-    idx = Z.mean(axis=1, skipna=True)
+    w = pd.Series({c: (weights or {}).get(c, 1.0) for c in have})
+    idx = (Z * w).sum(axis=1, skipna=True) / Z.notna().mul(w).sum(axis=1)
     idx[Z.notna().sum(axis=1) < max(2, len(have) - 1)] = np.nan   # need most parts
     return idx, have
 
@@ -87,7 +97,9 @@ for c, d_ in {**DRUG, **SPONSOR}.items():
 
 print("\n=== building indices ===")
 df["ip_index_drug"], used_drug = build(DRUG, "drug-level")
-df["ip_index_sponsor"], used_spon = build(SPONSOR, "sponsor-level")
+df["ip_index_sponsor"], used_spon = build(
+    SPONSOR, "sponsor-level",
+    weights={c: SCALE_WEIGHT for c in SPONSOR_SCALE})
 print(f"  drug-level index from   : {used_drug}")
 print(f"  sponsor-level index from: {used_spon or '(pending BigQuery)'}")
 
@@ -95,6 +107,15 @@ PRIMARY = "ip_index_sponsor" if used_spon else "ip_index_drug"
 df["ip_index"] = df[PRIMARY]
 df["ip_index_source"] = PRIMARY
 print(f"  PRIMARY index used      : {PRIMARY}")
+SPEC = {"QUALITY":"citations_per_patent","BREADTH":"family_size",
+        "TERM":"ob_term_remaining_yrs","FOCUS":"assignee_pharma_share",
+        "SCALE":"assignee_portfolio_size"}
+present = {k: (v in (used_spon + used_drug)) for k, v in SPEC.items()}
+df["ip_index_spec_complete"] = int(all(present.values()))
+print("  design dimensions present:",
+      ", ".join(f"{k}={'Y' if v else 'N'}" for k, v in present.items()))
+if not all(present.values()):
+    print("  *** index is NOT spec-complete - do not use for the headline RQ1 result ***")
 
 frame = (df.start_year.between(2008, 2019)) & (df.is_resolved == 1)
 sub = df[frame & df.ip_index.notna()]
