@@ -1,6 +1,7 @@
 # Data dictionary
 
-Generated from the analysis-ready tables. Types are as stored in Parquet.
+Generated from the analysis-ready tables by `docs/gen_data_dictionary.py`.
+Types are as stored in Parquet.
 
 ## `ctgov_trials.parquet`
 
@@ -84,6 +85,23 @@ Generated from the analysis-ready tables. Types are as stored in Parquet.
 | `fda_has_orphan` | int64 | 29,351 | 0 |
 | `fda_lifecycle_years` | float64 | 26,641 | 17.86 |
 
+## `ip_index.parquet`
+
+106,311 rows x 10 columns (0.75 MB)
+
+| Column | Type | Non-null | Example |
+|---|---|---|---|
+| `nct_id` | object | 106,311 | NCT00421564 |
+| `ip_index` | float64 | 14,035 | 2.1123785053125594 |
+| `ip_index_drug` | float64 | 14,035 | 2.1123785053125594 |
+| `ip_index_sponsor` | object | 0 |  |
+| `ip_index_source` | object | 106,311 | ip_index_drug |
+| `ip_strong` | float64 | 14,035 | 1.0 |
+| `ip_tertile_extreme` | float64 | 9,955 | 1.0 |
+| `ob_evergreen_ratio` | float64 | 5,172 | 0.7941 |
+| `ob_n_patents` | float64 | 14,035 | 34.0 |
+| `ob_term_remaining_yrs` | float64 | 5,172 | 28.435318275154003 |
+
 ## `medicaid_product_year.parquet`
 
 285,308 rows x 10 columns (7.30 MB)
@@ -121,9 +139,9 @@ Generated from the analysis-ready tables. Types are as stored in Parquet.
 | `ob_n_use_codes` | int64 | 27,376 | 0 |
 | `ob_last_patent_expiry` | datetime64[ns] | 1,336 | 2041-07-18 00:00:00 |
 | `ob_first_patent_expiry` | datetime64[ns] | 1,336 | 2041-07-18 00:00:00 |
-| `ob_first_submission` | datetime64[ns] | 1,306 | 2023-09-21 00:00:00 |
-| `ob_last_submission` | datetime64[ns] | 1,306 | 2024-07-31 00:00:00 |
-| `ob_evergreen_ratio` | float64 | 1,336 | 9.0 |
+| `ob_first_submission` | datetime64[ns] | 1,292 | 2023-09-21 00:00:00 |
+| `ob_last_submission` | datetime64[ns] | 1,292 | 2023-09-21 00:00:00 |
+| `ob_evergreen_ratio` | float64 | 1,336 | 1.0 |
 | `ob_patent_span_years` | float64 | 1,336 | 0.0 |
 | `ob_n_exclusivities` | int64 | 27,376 | 0 |
 | `ob_last_exclusivity` | datetime64[ns] | 628 | 2026-07-13 00:00:00 |
@@ -172,6 +190,21 @@ Generated from the analysis-ready tables. Types are as stored in Parquet.
 | `is_originator` | int64 | 2,271 | 1 |
 | `proper_name_norm` | object | 2,271 | HEPATITIS B VACCINE (RECOMBINANT) |
 | `applicant_norm` | object | 2,271 | MERCK SHARP & DOHME LLC |
+
+## `sponsor_assignee_map.parquet`
+
+106,311 rows x 8 columns (1.63 MB)
+
+| Column | Type | Non-null | Example |
+|---|---|---|---|
+| `nct_id` | object | 106,311 | NCT00421564 |
+| `lead_sponsor` | object | 106,311 | Chinese University of Hong Kong |
+| `sponsor_norm` | object | 106,311 | CHINESE UNIVERSITY OF HONG KONG |
+| `corporate_group` | object | 106,311 | CHINESE UNIVERSITY OF HONG KONG |
+| `matched_curated` | int64 | 106,311 | 0 |
+| `is_industry` | int64 | 106,311 | 0 |
+| `start_year` | float64 | 105,308 | 2003.0 |
+| `is_resolved` | int64 | 106,311 | 1 |
 
 ## `trial_drug_resolution.parquet`
 
