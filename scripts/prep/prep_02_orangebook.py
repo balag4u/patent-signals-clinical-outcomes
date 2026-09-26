@@ -10,6 +10,10 @@ pat, exc, prod = rd("patent.txt"), rd("exclusivity.txt"), rd("products.txt")
 pat["appl_no"] = pat.Appl_No.str.strip()
 pat["patent_expire"] = pd.to_datetime(pat.Patent_Expire_Date_Text, errors="coerce")
 pat["submission_date"] = pd.to_datetime(pat.Submission_Date, errors="coerce")
+# One patent can be listed against many products of the same application
+# (3.15 rows per patent on average). Category counts must therefore be taken at
+# the PATENT level, not the row level, or ratios exceed 1.
+pat = pat.drop_duplicates(subset=["appl_no", "Patent_No"]).copy()
 pat["is_substance"] = (pat.Drug_Substance_Flag.fillna("") == "Y").astype(int)
 pat["is_product"]   = (pat.Drug_Product_Flag.fillna("")  == "Y").astype(int)
 pat["has_use_code"] = pat.Patent_Use_Code.notna().astype(int)
