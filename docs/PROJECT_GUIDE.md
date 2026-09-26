@@ -374,7 +374,7 @@ date* so there is no look-ahead.
 This is the survivorship-safe measure: it exists for every sponsor whether or not their drug was
 ever approved.
 
-### The step that is not yet built
+### Sponsor-to-assignee mapping (BUILT)
 
 Query 3 needs a list of **patent assignee names**. Trial sponsors are recorded as
 "Hoffmann-La Roche"; patents are assigned to "F. HOFFMANN-LA ROCHE AG". These must be matched —
@@ -386,9 +386,32 @@ The scale is manageable:
 - the **top 20 cover 34%** of industry trials
 - the **top 200 cover 63%**
 
-So: hand-curate aliases for the top ~200 sponsors, then fall back to fuzzy matching for the tail,
-and record which trials got an exact versus fuzzy sponsor match so the distinction can be tested
-in a sensitivity analysis. Budget half a day.
+`prep_10_sponsor_assignee.py` builds this. It produces
+`data/analysis_ready/bigquery_assignee_names.csv` — **149 assignee search names across 71
+corporate groups**, ready to paste into query 3 — and `sponsor_assignee_map.parquet`, which maps
+every trial to its corporate group.
+
+**Coverage: 56.4% of industry trials** resolve to a curated group. The unmatched remainder are
+small firms with few trials each; they are kept as their own group and can be matched by fuzzy
+assignee lookup later.
+
+Three things the script has to get right, and each caused a bug before it was fixed:
+
+1. **Corporate rollup.** Genentech's patents are Roche's, Janssen's are Johnson & Johnson's.
+   Without rollup a sponsor's portfolio is understated. Roche gains 114 Genentech trials, AbbVie
+   gains Allergan and Forest Laboratories, Takeda gains Shire and Millennium.
+2. **Acquisition timing.** Wyeth's patents became Pfizer's only in 2009. Because IP is measured
+   *as of each trial's start date*, the parent applies only from the acquisition year onward.
+   27 subsidiaries carry a `parent_from_year`.
+3. **Two firms that must never be merged.** "Merck Sharp & Dohme" (US) and "Merck KGaA,
+   Darmstadt" (Germany) are unrelated companies that split in 1917. Merging them would corrupt
+   two of the largest portfolios in the data. The script asserts zero cross-contamination in
+   both directions.
+
+A further trap: the registry states parentage in prose — "ArQule, Inc., a subsidiary of Merck
+Sharp & Dohme LLC". Name-cleaning strips that clause, which discards the very text identifying
+the parent, so parentage is read from the **raw** string before normalisation. That fix alone
+recovered 16 subsidiaries.
 
 ### Running and retrieving
 
