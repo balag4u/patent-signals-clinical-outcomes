@@ -6,3 +6,6 @@ __pycache__/
 # raw sources are not vendored - see docs/DATA_SOURCES.md
 raw/
 *.zip
+# 222 MB, exceeds GitHub's 100 MB file limit; regenerate with
+# prep_04_faers.py then prep_04b_faers_recompute.py
+data/analysis_ready/faers_drug_event_signals.parquet
