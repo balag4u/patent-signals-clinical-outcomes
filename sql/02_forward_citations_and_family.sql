@@ -4,16 +4,16 @@
 -- so we avoid a self-join scan over the full citation column.
 -- =====================================================================
 WITH ob AS (
-  SELECT DISTINCT CAST(num AS STRING) AS patent_no FROM UNNEST(@patent_list) AS num
+  SELECT DISTINCT CAST(num AS STRING) AS patent_prefix FROM UNNEST(@patent_list) AS num
 ),
 fwd AS (
   SELECT
-    REGEXP_EXTRACT(r.publication_number, r'^US-(\d+)-') AS patent_no,
+    REGEXP_EXTRACT(r.publication_number, r'^(US-(?:RE)?\d+)-') AS patent_prefix,
     r.publication_number,
     ARRAY_LENGTH(r.cited_by) AS n_forward_citations
   FROM `patents-public-data.google_patents_research.publications` r
   WHERE r.country = 'US'
-    AND REGEXP_EXTRACT(r.publication_number, r'^US-(\d+)-') IN (SELECT patent_no FROM ob)
+    AND REGEXP_EXTRACT(r.publication_number, r'^(US-(?:RE)?\d+)-') IN (SELECT patent_prefix FROM ob)
 ),
 fam AS (
   -- family size = number of publications sharing the family_id (geographic breadth)
@@ -23,7 +23,7 @@ fam AS (
   WHERE family_id IN (
     SELECT DISTINCT family_id FROM `patents-public-data.patents.publications`
     WHERE country_code='US'
-      AND REGEXP_EXTRACT(publication_number, r'^US-(\d+)-') IN (SELECT patent_no FROM ob)
+      AND REGEXP_EXTRACT(publication_number, r'^(US-(?:RE)?\d+)-') IN (SELECT patent_prefix FROM ob)
   )
   GROUP BY family_id
 )
