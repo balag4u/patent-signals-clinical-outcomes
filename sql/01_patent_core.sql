@@ -7,14 +7,14 @@
 -- =====================================================================
 WITH ob AS (
   -- Orange Book patent numbers, US utility patents
-  SELECT DISTINCT CAST(num AS STRING) AS patent_no
+  SELECT DISTINCT CAST(num AS STRING) AS patent_prefix
   FROM UNNEST(@patent_list) AS num
 ),
 pub AS (
   SELECT
     p.publication_number,
     -- US-7625884-B2 -> 7625884
-    REGEXP_EXTRACT(p.publication_number, r'^US-(\d+)-') AS patent_no,
+    REGEXP_EXTRACT(p.publication_number, r'^(US-(?:RE)?\d+)-') AS patent_prefix,
     p.application_number,
     p.country_code,
     p.kind_code,
@@ -38,7 +38,7 @@ pub AS (
     (SELECT COUNTIF(SUBSTR(c.code,1,4) = 'A61K') FROM UNNEST(p.cpc) c) AS n_cpc_a61k
   FROM `patents-public-data.patents.publications` p
   WHERE p.country_code = 'US'
-    AND REGEXP_EXTRACT(p.publication_number, r'^US-(\d+)-') IN (SELECT patent_no FROM ob)
+    AND REGEXP_EXTRACT(p.publication_number, r'^(US-(?:RE)?\d+)-') IN (SELECT patent_prefix FROM ob)
 )
 SELECT
   pub.*,
