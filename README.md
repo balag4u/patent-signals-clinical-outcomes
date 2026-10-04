@@ -35,7 +35,10 @@ point `DATA` at `data/analysis_ready`.
 | `scripts/analysis/` | Sample size calculation, precision sampling, precision scoring |
 | `scripts/colab/` | Analysis notebook covering RQ1–RQ4 |
 | `sql/` | BigQuery statements for Google Patents Public Data, with a cost guide |
-| `docs/` | Data dictionary |
+| `docs/` | Components narrative, project guide, data dictionary, data sources |
+
+For the reasoning behind each subsystem — what it is and why it is built that way —
+see [docs/COMPONENTS.md](docs/COMPONENTS.md).
 
 **Raw sources are not vendored** (~15 GB). Every one is re-downloadable from the endpoints in
 [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md), and `scripts/prep/` regenerates the derived tables.
