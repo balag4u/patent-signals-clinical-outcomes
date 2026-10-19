@@ -12,8 +12,8 @@ regulatory pathway and sponsor characteristics.
 ## Quick start
 
 ```bash
-git clone https://github.com/<user>/qm640-capstone.git
-cd qm640-capstone
+git clone https://github.com/balag4u/patent-signals-clinical-outcomes.git
+cd patent-signals-clinical-outcomes
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
@@ -28,11 +28,11 @@ point `DATA` at `data/analysis_ready`.
 
 | Path | Contents |
 |---|---|
-| `data/analysis_ready/` | Analysis-ready Parquet tables (17 MB). **This is all you need to reproduce the analysis.** |
+| `data/analysis_ready/` | 11 analysis-ready Parquet tables (20 MB). **This is all you need to reproduce the analysis.** |
 | `data/validation/` | 200-link precision adjudication sample + scoring weights + instructions |
 | `scripts/pull_ctgov.py` | Retrieves Phase II/III drug trials from the ClinicalTrials.gov API v2 |
-| `scripts/prep/` | Nine reduction scripts, raw source → analysis-ready table |
-| `scripts/analysis/` | Sample size calculation, precision sampling, precision scoring |
+| `scripts/prep/` | Eleven reduction scripts, raw source → analysis-ready table |
+| `scripts/analysis/` | Sample size calculation, precision sampling and scoring, interim EDA and preliminary models |
 | `scripts/colab/` | Analysis notebook covering RQ1–RQ4 |
 | `sql/` | BigQuery statements for Google Patents Public Data, with a cost guide |
 | `docs/` | Components narrative, project guide, data dictionary, data sources |
@@ -150,6 +150,32 @@ Synonym lookup uses **exact** matching only: substring matching maps `APATINIB` 
 
 Precision is established by human adjudication of a stratified 200-link sample — see
 [data/validation/HOW_TO_ADJUDICATE.md](data/validation/HOW_TO_ADJUDICATE.md).
+
+## Reproducing the exploratory analysis and preliminary models
+
+```bash
+python scripts/analysis/interim_eda.py
+```
+
+Builds the analytic frame, runs the data-quality audit, fits the preliminary models for
+RQ1-RQ4, writes nine figures to `docs/figures/` and every computed statistic to
+`docs/interim_results.json`. It takes about three minutes, needs no credentials and no
+network access, and is the source of every number quoted in the interim report - the report
+is generated from that JSON file rather than from transcribed values, so the two cannot
+drift apart.
+
+Current held-out results (train 2008-2015, test 2016-2019):
+
+| Feature set | L1 logistic | Gradient boosting |
+|---|---|---|
+| Design only | 0.596 | 0.636 |
+| + sponsor history | 0.644 | 0.676 |
+| + regulatory + drug-level IP | 0.647 | **0.683** |
+
+Sponsor prior completion rate and site count carry most of the signal; the drug-level IP
+features rank 15th and 16th of 26. That is the honest position until the sponsor-level
+portfolio measure exists - the drug-level block is absent for two-thirds of the frame, and
+absent non-randomly.
 
 ## Reproducing the sample size calculation
 
