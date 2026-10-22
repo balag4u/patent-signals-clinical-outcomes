@@ -2,10 +2,18 @@
 """QM 640 Capstone - stepwise sample size calculation, RQ1-RQ4.
 alpha=0.05 two-tailed, power=0.80. Uses the OBSERVED termination rate from
 the ClinicalTrials.gov extract rather than an assumed value."""
+import json
 import math
+from pathlib import Path
 Z_A, Z_B = 1.959964, 0.841621     # z(1-0.05/2), z(0.80)
 Z_SUM_SQ = (Z_A + Z_B) ** 2        # 7.848877
-P_TERM = 0.242701                  # OBSERVED: 12,037 terminated of 49,596 resolved
+# Read from the analysis rather than pinned, so this file cannot drift from the
+# frame again. The constants below were stale at p = 0.242701 (an earlier, wider
+# frame of 49,596 resolved trials) while the report quoted 0.2217 from the final
+# 39,437-trial frame, so the two disagreed on every one of the four requirements.
+_R = json.loads((Path(__file__).resolve().parents[2] / "docs" /
+                 "interim_results.json").read_text())
+P_TERM = round(_R["frame"]["p_terminated"], 6)
                                    # (start 2008-2023, Phase II/III interventional drug)
 
 print("=" * 72)
@@ -41,7 +49,7 @@ RQ2 = math.ceil(n2); print(f"  RQ2 N = {RQ2}")
 HR, pa = 1.25, 0.50
 lnhr2 = math.log(HR)**2
 d = Z_SUM_SQ / (pa*(1-pa)*lnhr2)
-event_frac = 0.757299        # completed / resolved, observed (37,559 / 49,596)
+event_frac = round(_R["frame"]["completed"] / _R["frame"]["analytic_n"], 6)
 n3 = math.ceil(d) / event_frac
 print(f"\nRQ3  Cox proportional hazards (Schoenfeld event-driven formula)")
 print(f"  Step 1  HR = {HR}, ln(HR) = {math.log(HR):.6f}, ln(HR)^2 = {lnhr2:.6f}")
