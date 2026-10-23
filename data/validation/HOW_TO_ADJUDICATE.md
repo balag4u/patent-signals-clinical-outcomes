@@ -43,8 +43,17 @@ Use `notes` for anything ambiguous; those rows are worth discussing with your me
 
 ## Scoring
 
+Adjudicate with the helper, which shows one link at a time, groups the easy
+strata first, and saves after every keystroke so you can stop and resume:
+
 ```bash
-~/dba_venv/bin/python "_scripts/analysis/score_precision.py" "11_validation"
+~/dba_venv/bin/python scripts/analysis/adjudicate.py
+```
+
+Then score:
+
+```bash
+~/dba_venv/bin/python scripts/analysis/score_precision.py data/validation
 ```
 
 The sample deliberately **over-samples risky methods** — all 31 fuzzy and 19 desalt
