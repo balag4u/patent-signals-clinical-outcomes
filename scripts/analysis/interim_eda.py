@@ -154,17 +154,62 @@ results["censoring_by_year"] = {
 # ----------------------------------------------------------------------------
 print("\n[2] Sponsor history (past-only)")
 
-frame = frame.sort_values("start_date")
-g = frame.groupby("lead_sponsor")
-frame["sponsor_prior_trials"] = g.cumcount()
-frame["sponsor_prior_terminations"] = g["is_terminated"].cumsum() - frame["is_terminated"]
+frame = frame.sort_values("start_date").reset_index(drop=True)
+
+# Two "as of" rules, because the two facts become knowable at different times.
+# How many trials a sponsor has already registered IS visible at the focal trial's
+# start date, so prior_trials counts trials STARTED earlier. How those trials turned
+# out is not: a sibling that started in 2013 may not have reported an outcome until
+# 2016, and counting its final status against a 2014 trial is the same look-ahead
+# the enrolment field carries (Section 7). Since this is the model's strongest
+# feature, that leak inflated it. The completion rate is therefore computed only
+# over prior trials RESOLVED before the focal start date.
+#
+# History is drawn from the full retrieval rather than the analytic frame, so a
+# sponsor's pre-2008 and out-of-window trials still count toward what was knowable.
+hist = trials[["lead_sponsor", "start_date", "completion_date",
+               "is_resolved", "is_terminated"]]
+
+started = {s: np.sort(g.start_date.values)
+           for s, g in hist[hist.start_date.notna()].groupby("lead_sponsor")}
+resolved_hist = {}
+for s, g in hist[(hist.is_resolved == 1) & hist.completion_date.notna()].groupby("lead_sponsor"):
+    g = g.sort_values("completion_date")
+    resolved_hist[s] = (g.completion_date.values,
+                        np.concatenate([[0.0], np.cumsum(g.is_terminated.to_numpy(float))]))
+
+prior_n = np.zeros(len(frame))
+prior_res = np.zeros(len(frame))
+prior_term = np.zeros(len(frame))
+for s, idx in frame.groupby("lead_sponsor").indices.items():
+    t0 = frame.start_date.values[idx]
+    sd = started.get(s)
+    if sd is not None:
+        prior_n[idx] = np.searchsorted(sd, t0, side="left")
+    rh = resolved_hist.get(s)
+    if rh is not None:
+        cd, cum = rh
+        k = np.searchsorted(cd, t0, side="left")
+        prior_res[idx] = k
+        prior_term[idx] = cum[k]
+
+frame["sponsor_prior_trials"] = prior_n
+frame["sponsor_prior_resolved"] = prior_res
+frame["sponsor_prior_terminations"] = prior_term
 frame["sponsor_prior_completion_rate"] = np.where(
-    frame.sponsor_prior_trials > 0,
-    1 - frame.sponsor_prior_terminations / frame.sponsor_prior_trials,
-    np.nan,
-)
-first_trial = int((frame.sponsor_prior_trials == 0).sum())
-print(f"  sponsor_prior_completion_rate undefined for {first_trial:,} first-ever trials")
+    prior_res > 0, 1 - prior_term / np.maximum(prior_res, 1), np.nan)
+
+no_history = int((prior_res == 0).sum())
+results["sponsor_history"] = {
+    "rule": "prior trials counted by start date; completion rate over prior trials "
+            "RESOLVED before the focal start date",
+    "undefined_no_resolved_prior": no_history,
+    "undefined_pct": round(100.0 * no_history / len(frame), 2),
+    "median_prior_trials": float(np.median(prior_n)),
+    "median_prior_resolved": float(np.median(prior_res)),
+}
+print(f"  sponsor_prior_completion_rate undefined for {no_history:,} trials "
+      f"({100.0 * no_history / len(frame):.1f}%) with no prior RESOLVED trial")
 
 # ----------------------------------------------------------------------------
 # 3. Linkage: trial -> FDA application -> regulatory and drug-level IP blocks
@@ -368,7 +413,7 @@ ax.set_title("Termination rate by therapeutic area")
 ax.yaxis.grid(False)
 ax.xaxis.grid(True)
 tidy(ax, hide_x_grid=False)
-save(ax.figure, "fig02_termination_by_area.png")
+save(ax.figure, "fig04_termination_by_area.png")
 
 # Figure 3 - the enrollment leakage, shown rather than asserted
 fig, ax = plt.subplots(figsize=(6.4, 3.0))
@@ -382,7 +427,7 @@ ax.set_xlabel("Recorded enrollment (log scale, participants)")
 ax.set_ylabel("Trials")
 ax.set_title("Recorded enrollment by outcome: a consequence, not a predictor")
 ax.legend(fontsize=8)
-save(tidy(ax).figure, "fig03_enrollment_leakage.png")
+save(tidy(ax).figure, "fig02_enrollment_leakage.png")
 
 # Figure 4 - missingness by block, which drives the imputation strategy
 fig, ax = plt.subplots(figsize=(6.4, 3.6))
@@ -404,7 +449,7 @@ ax.legend(handles, ["Design / sponsor (registry)", "Regulatory (Drugs@FDA)", "IP
 ax.yaxis.grid(False)
 ax.xaxis.grid(True)
 tidy(ax, hide_x_grid=False)
-save(ax.figure, "fig04_missingness.png")
+save(ax.figure, "fig03_missingness.png")
 
 # ----------------------------------------------------------------------------
 # 7. RQ1 - termination rate by IP strength
@@ -433,6 +478,36 @@ z_sel, p_sel = proportions_ztest(
     [int(frame.loc[obs, "is_terminated"].sum()), int(frame.loc[~obs, "is_terminated"].sum())],
     [int(obs.sum()), int((~obs).sum())],
 )
+# The drug-level index is a property of the DRUG, so every trial of the same drug
+# carries an identical value and the 14,035 trials are not 14,035 independent
+# observations. The naive z above treats them as if they were; the clustered fit
+# below is what the standard errors should reflect.
+import statsmodels.formula.api as smf
+
+rq1["cluster"] = rq1.appl_no.where(rq1.appl_no.notna(), "NCT:" + rq1.nct_id)
+cl = smf.logit("is_terminated ~ ip_strong", data=rq1).fit(
+    disp=0, cov_type="cluster", cov_kwds={"groups": rq1.cluster})
+naive = smf.logit("is_terminated ~ ip_strong", data=rq1).fit(disp=0)
+or_ip = float(np.exp(cl.params["ip_strong"]))
+or_lo, or_hi = np.exp(cl.conf_int().loc["ip_strong"].to_numpy())
+design_effect = float((cl.bse["ip_strong"] / naive.bse["ip_strong"]) ** 2)
+
+results["rq1_clustered"] = {
+    "cluster_variable": "FDA application number (nct_id where unlinked)",
+    "n_clusters": int(rq1.cluster.nunique()),
+    "n_trials": int(len(rq1)),
+    "trials_per_cluster": round(float(len(rq1) / rq1.cluster.nunique()), 2),
+    "odds_ratio_ip_strong": round(or_ip, 4),
+    "or_ci95": [round(float(or_lo), 4), round(float(or_hi), 4)],
+    "z": round(float(cl.tvalues["ip_strong"]), 4),
+    "p_value": float(cl.pvalues["ip_strong"]),
+    "naive_p_value": float(naive.pvalues["ip_strong"]),
+    "se_inflation_design_effect": round(design_effect, 2),
+}
+print(f"  clustered on {rq1.cluster.nunique():,} applications: OR = {or_ip:.3f} "
+      f"[{or_lo:.3f}, {or_hi:.3f}], p = {cl.pvalues['ip_strong']:.2e} "
+      f"(naive p = {naive.pvalues['ip_strong']:.2e}, design effect {design_effect:.1f}x)")
+
 results["rq1"] = {
     "n_computable": int(len(rq1)),
     "n_not_computable": int((~obs).sum()),
@@ -485,9 +560,13 @@ train = model_frame[model_frame.start_year <= TRAIN_MAX]
 test = model_frame[model_frame.start_year >= TEST_MIN]
 print(f"  train {len(train):,} (2008-{TRAIN_MAX})   test {len(test):,} ({TEST_MIN}-2019)")
 
+# The regulatory-only step is here so the increment from adding IP can be read on
+# its own. Without it the last row bundles regulatory and IP together and no
+# IP-specific conclusion can be drawn from the difference.
 FEATURE_SETS = {
     "Design only": DESIGN,
     "Design + sponsor": DESIGN + SPONSOR,
+    "Design + sponsor + regulatory": DESIGN + SPONSOR + REGULATORY,
     "Design + sponsor + regulatory + IP": CANDIDATES,
 }
 nir = float(max(test.is_terminated.mean(), 1 - test.is_terminated.mean()))
@@ -550,6 +629,107 @@ for set_name, feats in FEATURE_SETS.items():
         fitted[(set_name, label)] = (mdl, pr)
         print(f"  {set_name:36s} {label[:28]:30s} AUC {perf[-1]['auc']:.4f}")
 
+# Discrimination was reported without any uncertainty attached, so the claim that
+# the IP block "adds only 0.007 AUC" could not be distinguished from noise. The
+# bootstrap is paired - every model is scored on the same resampled rows - so the
+# increment between two nested models has a confidence interval of its own.
+print("  bootstrapping AUC (1,000 paired resamples)")
+rng = np.random.default_rng(SEED)
+yte_arr = test.is_terminated.to_numpy()
+boot_rows = [rng.integers(0, len(yte_arr), len(yte_arr)) for _ in range(1000)]
+boot_auc = {}
+for key, (_, pr) in fitted.items():
+    vals = []
+    for b in boot_rows:
+        yb = yte_arr[b]
+        if yb.min() == yb.max():
+            continue
+        vals.append(roc_auc_score(yb, pr[b]))
+    boot_auc[key] = np.asarray(vals)
+
+for row in perf:
+    key = (row["features"], row["model"])
+    if key in boot_auc:
+        lo, hi = np.percentile(boot_auc[key], [2.5, 97.5])
+        row["auc_ci95"] = [round(float(lo), 4), round(float(hi), 4)]
+
+GB = "Gradient-boosted trees (HistGB)"
+
+
+def increment(from_set, to_set):
+    d = boot_auc[(to_set, GB)] - boot_auc[(from_set, GB)]
+    lo, hi = np.percentile(d, [2.5, 97.5])
+    return {"from": from_set, "to": to_set,
+            "delta_auc": round(float(d.mean()), 4),
+            "ci95": [round(float(lo), 4), round(float(hi), 4)],
+            "p_two_sided": round(float(2 * min((d <= 0).mean(), (d >= 0).mean())), 4)}
+
+
+results["rq2_increments"] = [
+    increment("Design only", "Design + sponsor"),
+    increment("Design + sponsor", "Design + sponsor + regulatory"),
+    increment("Design + sponsor + regulatory", "Design + sponsor + regulatory + IP"),
+    increment("Design + sponsor", "Design + sponsor + regulatory + IP"),
+]
+for inc in results["rq2_increments"]:
+    print(f"  + {inc['to'].split('+')[-1].strip():12s} dAUC {inc['delta_auc']:+.4f} "
+          f"[{inc['ci95'][0]:+.4f}, {inc['ci95'][1]:+.4f}]  p = {inc['p_two_sided']:.3f}")
+
+# The increments above are computed on the whole holdout, where the drug-level IP
+# block is absent for roughly two-thirds of rows and the learner routes those down
+# a missing branch. A near-zero increment is therefore partly a measure of how often
+# the block is populated rather than of what it carries. The honest test of H2b is
+# the same comparison restricted to trials where the block exists, so both are
+# reported and the report draws its conclusion from the pair.
+print("  increments on the IP-computable subsample")
+sub = model_frame[model_frame.ob_n_patents.notna()]
+sub_train = sub[sub.start_year <= TRAIN_MAX]
+sub_test = sub[sub.start_year >= TEST_MIN]
+ysub = sub_test.is_terminated.to_numpy()
+rng_sub = np.random.default_rng(SEED + 1)
+sub_boot = [rng_sub.integers(0, len(ysub), len(ysub)) for _ in range(1000)]
+sub_auc = {}
+for set_name, feats in FEATURE_SETS.items():
+    g = HistGradientBoostingClassifier(
+        max_depth=4, learning_rate=0.06, max_iter=400, l2_regularization=1.0,
+        class_weight="balanced", early_stopping=True, validation_fraction=0.15,
+        random_state=SEED,
+    ).fit(sub_train[feats], sub_train.is_terminated)
+    pr = g.predict_proba(sub_test[feats])[:, 1]
+    vals = []
+    for b in sub_boot:
+        yb = ysub[b]
+        if yb.min() == yb.max():
+            continue
+        vals.append(roc_auc_score(yb, pr[b]))
+    sub_auc[set_name] = np.asarray(vals)
+
+
+def sub_increment(from_set, to_set):
+    d = sub_auc[to_set] - sub_auc[from_set]
+    lo, hi = np.percentile(d, [2.5, 97.5])
+    return {"from": from_set, "to": to_set,
+            "delta_auc": round(float(d.mean()), 4),
+            "ci95": [round(float(lo), 4), round(float(hi), 4)],
+            "p_two_sided": round(float(2 * min((d <= 0).mean(), (d >= 0).mean())), 4)}
+
+
+results["rq2_increments_subsample"] = {
+    "note": "Same nested comparison restricted to trials with an observable "
+            "drug-level IP block, so the block is populated for every row.",
+    "train_n": int(len(sub_train)),
+    "test_n": int(len(sub_test)),
+    "test_terminated": int(ysub.sum()),
+    "auc_full_model": round(float(np.mean(sub_auc["Design + sponsor + regulatory + IP"])), 4),
+    "increments": [
+        sub_increment("Design + sponsor", "Design + sponsor + regulatory"),
+        sub_increment("Design + sponsor + regulatory", "Design + sponsor + regulatory + IP"),
+    ],
+}
+for inc in results["rq2_increments_subsample"]["increments"]:
+    print(f"    [sub] + {inc['to'].split('+')[-1].strip():12s} dAUC {inc['delta_auc']:+.4f} "
+          f"[{inc['ci95'][0]:+.4f}, {inc['ci95'][1]:+.4f}]  p = {inc['p_two_sided']:.3f}")
+
 results["rq2_performance"] = perf
 results["rq2_split"] = {"train_n": len(train), "test_n": len(test),
                         "test_terminated": int(test.is_terminated.sum()),
@@ -558,6 +738,7 @@ results["rq2_split"] = {"train_n": len(train), "test_n": len(test),
 
 best_key = ("Design + sponsor + regulatory + IP", "Gradient-boosted trees (HistGB)")
 best_model, best_pr = fitted[best_key]
+feats_best = FEATURE_SETS[best_key[0]]
 
 # Figure 6 - ROC on the held-out period
 fig, ax = plt.subplots(figsize=(4.4, 4.0))
@@ -592,20 +773,171 @@ cal = dec.groupby("bin").agg(pred=("p", "mean"), obs=("y", "mean"), n=("y", "siz
 ax.plot([0, cal.pred.max() * 1.1], [0, cal.pred.max() * 1.1], color=INK_SOFT, lw=1, ls="--",
         label="Perfect calibration")
 ax.plot(cal.pred, cal.obs, color=BLUE, lw=2, marker="o", ms=5, label="Gradient boosting, by decile")
-slope, intercept = np.polyfit(cal.pred, cal.obs, 1)
+# Van Calster et al. (2019), which this study cites for calibration, define the
+# slope as the coefficient from a logistic regression of the outcome on the linear
+# predictor at individual level. An OLS line through ten decile points on the
+# probability scale measures something else, and reported an intercept near zero
+# while mean predicted risk was close to twice the observed rate. Calibration in
+# the large is reported alongside, because that is the number that carries the
+# severity.
+import statsmodels.api as sm
+
+eps = 1e-9
+pc = np.clip(best_pr, eps, 1 - eps)
+lp = np.log(pc / (1 - pc))
+cal_fit = sm.Logit(test.is_terminated.to_numpy(),
+                   sm.add_constant(lp)).fit(disp=0)
+intercept, slope = float(cal_fit.params[0]), float(cal_fit.params[1])
+mean_pred = float(best_pr.mean())
+observed = float(test.is_terminated.mean())
 ax.set_xlabel("Mean predicted probability")
 ax.set_ylabel("Observed termination rate")
-ax.set_title(f"RQ2: calibration by risk decile\n(slope {slope:.2f}, intercept {intercept:+.2f})")
+ax.set_title(f"RQ2: calibration by risk decile (slope {slope:.2f})\n"
+             f"mean predicted {mean_pred:.1%} vs observed {observed:.1%}")
 ax.legend(fontsize=8, loc="upper left")
 ax.xaxis.grid(True)
 tidy(ax, hide_x_grid=False)
-save(ax.figure, "fig07_calibration.png")
+save(ax.figure, "fig08_calibration.png")
 results["rq2_calibration"] = {
+    "method": "logistic recalibration of the outcome on the linear predictor "
+              "(Van Calster et al., 2019); ideal slope 1, intercept 0",
     "slope": round(float(slope), 4),
     "intercept": round(float(intercept), 4),
+    "mean_predicted_risk": round(mean_pred, 4),
+    "observed_rate": round(observed, 4),
+    "over_prediction_ratio": round(mean_pred / observed, 3),
     "deciles": [{"decile": int(i) + 1, "predicted": round(float(r.pred), 4),
                  "observed": round(float(r.obs), 4), "n": int(r.n)} for i, r in cal.iterrows()],
 }
+
+# The calibration failure is a level shift, which class weighting produces, so it
+# should yield to a one-parameter correction: hold the slope at one and re-estimate
+# the intercept only. The correction is fitted on the TRAINING period and then
+# applied unchanged to the holdout. Fitting it on the holdout would report the
+# in-sample fit of the correction itself, which cannot fail and would prove nothing.
+# The holdout-fitted value is carried alongside only to show what the transfer costs.
+print("  intercept-only recalibration (fitted on train, applied to holdout)")
+pc_tr = np.clip(best_model.predict_proba(train[feats_best])[:, 1], eps, 1 - eps)
+lp_tr = np.log(pc_tr / (1 - pc_tr))
+a_train = float(
+    sm.GLM(train.is_terminated.to_numpy(), np.ones((len(train), 1)),
+           family=sm.families.Binomial(), offset=lp_tr).fit().params[0]
+)
+a_test = float(
+    sm.GLM(test.is_terminated.to_numpy(), np.ones((len(test), 1)),
+           family=sm.families.Binomial(), offset=lp).fit().params[0]
+)
+pr_corr = 1.0 / (1.0 + np.exp(-(lp + a_train)))
+cal_fit_c = sm.Logit(test.is_terminated.to_numpy(),
+                     sm.add_constant(np.log(np.clip(pr_corr, eps, 1 - eps) /
+                                            (1 - np.clip(pr_corr, eps, 1 - eps))))).fit(disp=0)
+results["rq2_calibration_corrected"] = {
+    "method": "intercept-only (slope fixed at 1) logistic offset correction; the "
+              "offset is estimated on the 2008-2015 training period and applied "
+              "unchanged to the 2016-2019 holdout",
+    "intercept_offset_fitted_on_train": round(a_train, 4),
+    "intercept_offset_fitted_on_holdout": round(a_test, 4),
+    "transfer_gap": round(a_test - a_train, 4),
+    "slope_after": round(float(cal_fit_c.params[1]), 4),
+    "intercept_after": round(float(cal_fit_c.params[0]), 4),
+    "mean_predicted_risk_after": round(float(pr_corr.mean()), 4),
+    "observed_rate": round(observed, 4),
+    "over_prediction_ratio_after": round(float(pr_corr.mean()) / observed, 3),
+    "brier_before": round(float(brier_score_loss(test.is_terminated, best_pr)), 4),
+    "brier_after": round(float(brier_score_loss(test.is_terminated, pr_corr)), 4),
+    "auc_unchanged": round(float(roc_auc_score(test.is_terminated, pr_corr)), 4),
+}
+_rc = results["rq2_calibration_corrected"]
+print(f"    offset {a_train:+.4f} (holdout-fitted {a_test:+.4f})  "
+      f"mean predicted {_rc['mean_predicted_risk_after']:.4f} vs observed {observed:.4f}  "
+      f"ratio {_rc['over_prediction_ratio_after']:.3f}")
+
+# ----------------------------------------------------------------------------
+# RQ1 selection: the drug-level index exists only where a drug reached an approved
+# FDA application, so the RQ1 estimate describes an approval-selected population.
+# Two treatments are reported. Inverse-probability weighting reweights the observed
+# subsample to the full frame on design and sponsor covariates, which identifies the
+# frame-level risk difference if observability is ignorable given those covariates.
+# That assumption is not testable here, so worst-case bounds are reported alongside:
+# the outcome IS known for every trial in the frame, and only the IP class is
+# unknown, so assigning the unobserved trials wholly to one group and then the other
+# brackets the risk difference without any assumption at all.
+# ----------------------------------------------------------------------------
+print("\n[9b] RQ1 selection: inverse-probability weighting and worst-case bounds")
+sel = frame.copy()
+sel["observed_ip"] = sel.ob_n_patents.notna().astype(int)
+sel_X = sel[DESIGN + SPONSOR].copy()
+sel_X = sel_X.fillna(sel_X.median(numeric_only=True))
+sel_fit = sm.Logit(sel.observed_ip.to_numpy(),
+                   sm.add_constant(sel_X.to_numpy(dtype=float))).fit(disp=0)
+pi_hat = np.clip(sel_fit.predict(sm.add_constant(sel_X.to_numpy(dtype=float))), 0.02, 0.98)
+sel["w"] = np.where(sel.observed_ip == 1, 1.0 / pi_hat, 0.0)
+o = sel[sel.observed_ip == 1]
+ws, ww = o[o.ip_strong == 1], o[o.ip_strong == 0]
+
+
+def wmean(g):
+    return float(np.average(g.is_terminated, weights=g.w))
+
+
+rd_ipw = wmean(ws) - wmean(ww)
+n_unobs = int((sel.observed_ip == 0).sum())
+p_unobs = float(sel.loc[sel.observed_ip == 0, "is_terminated"].mean())
+n_s, n_w = int((o.ip_strong == 1).sum()), int((o.ip_strong == 0).sum())
+p_s, p_w = float(o.loc[o.ip_strong == 1, "is_terminated"].mean()), float(o.loc[o.ip_strong == 0, "is_terminated"].mean())
+# Upper bound on the risk difference: the unobserved go to the strong group.
+rd_hi = ((n_s * p_s + n_unobs * p_unobs) / (n_s + n_unobs)) - p_w
+# Lower bound: the unobserved go to the weak group.
+rd_lo = p_s - ((n_w * p_w + n_unobs * p_unobs) / (n_w + n_unobs))
+results["rq1_selection"] = {
+    "observed_n": int(len(o)),
+    "unobserved_n": n_unobs,
+    "p_term_unobserved": round(p_unobs, 4),
+    "ipw": {
+        "method": "inverse probability of observability, propensity on design and "
+                  "sponsor blocks, weights trimmed to [0.02, 0.98]",
+        "risk_difference": round(rd_ipw, 4),
+        "unweighted_risk_difference": round(p_s - p_w, 4),
+        "effective_n": round(float(o.w.sum()), 1),
+        "assumption": "observability ignorable given the design and sponsor blocks",
+    },
+    "worst_case_bounds": {
+        "method": "outcome is observed for all 39,437 trials and only the IP class "
+                  "is unknown, so the unobserved are assigned wholly to one group "
+                  "and then the other; no ignorability assumption",
+        "risk_difference_lower": round(rd_lo, 4),
+        "risk_difference_upper": round(rd_hi, 4),
+        "sign_identified": bool(rd_lo < 0 and rd_hi < 0),
+    },
+}
+print(f"  IPW risk difference {rd_ipw:+.4f} (unweighted {p_s - p_w:+.4f})")
+print(f"  worst-case bounds [{rd_lo:+.4f}, {rd_hi:+.4f}]  "
+      f"sign identified: {results['rq1_selection']['worst_case_bounds']['sign_identified']}")
+
+# ----------------------------------------------------------------------------
+# Unresolved outcomes: 8,173 in-window trials are dropped for having no resolved
+# status. That exclusion conditions on a variable related to the outcome, so the
+# termination probability is bracketed by assigning the dropped trials wholly to
+# completion and then wholly to termination. The bounds are wide by construction;
+# the point is that the reported rate is not a point estimate of the in-window rate.
+# ----------------------------------------------------------------------------
+unres_n = int(n_window - len(frame))
+term_n = int(frame.is_terminated.sum())
+results["unresolved_sensitivity"] = {
+    "in_window_n": int(n_window),
+    "resolved_n": int(len(frame)),
+    "unresolved_n": unres_n,
+    "p_terminated_resolved_only": round(float(frame.is_terminated.mean()), 4),
+    "p_terminated_if_all_unresolved_complete": round(term_n / n_window, 4),
+    "p_terminated_if_all_unresolved_terminate": round((term_n + unres_n) / n_window, 4),
+    "note": "Unresolved trials are disproportionately later-starting and still "
+            "active; the resolved-only rate is the estimand the study reports and "
+            "the bounds state what the exclusion could at most be hiding.",
+}
+_us = results["unresolved_sensitivity"]
+print(f"  p(termination) resolved-only {_us['p_terminated_resolved_only']:.4f}  "
+      f"bounds [{_us['p_terminated_if_all_unresolved_complete']:.4f}, "
+      f"{_us['p_terminated_if_all_unresolved_terminate']:.4f}]")
 
 # Figure 8 - permutation importance, model-agnostic and computed on held-out data
 print("  permutation importance (held-out, 10 repeats)")
@@ -639,7 +971,7 @@ ax.legend(handles, ["Design / sponsor", "Regulatory", "IP (drug level)"], fontsi
 ax.yaxis.grid(False)
 ax.xaxis.grid(True)
 tidy(ax, hide_x_grid=False)
-save(ax.figure, "fig08_permutation_importance.png")
+save(ax.figure, "fig07_permutation_importance.png")
 
 # ----------------------------------------------------------------------------
 # 9. RQ3 - competing risks, preliminary
@@ -647,10 +979,19 @@ save(ax.figure, "fig08_permutation_importance.png")
 print("\n[9] RQ3")
 
 from lifelines import AalenJohansenFitter, CoxPHFitter
+from lifelines.statistics import proportional_hazard_test
 
 surv = frame[frame.months_to_primary_completion.notna()
              & (frame.months_to_primary_completion > 0)].copy()
 surv["status"] = np.where(surv.is_terminated == 1, 2, 1)
+# Reported rather than silent: the survival models run on fewer trials than the
+# classification models, and the cleaning log has to say so.
+results["rq3_exclusions"] = {
+    "analytic_frame": int(len(frame)),
+    "dropped_no_duration": int(frame.months_to_primary_completion.isna().sum()),
+    "dropped_nonpositive_duration": int((frame.months_to_primary_completion <= 0).sum()),
+    "survival_n": int(len(surv)),
+}
 results["rq3"] = {
     "n": int(len(surv)),
     "completed": int((surv.status == 1).sum()),
@@ -661,6 +1002,7 @@ results["rq3"] = {
 
 sv = surv[surv.ip_strong.notna()].copy()
 sv["ip_strong"] = sv.ip_strong.astype(int)
+sv["cluster"] = sv.appl_no.where(sv.appl_no.notna(), "NCT:" + sv.nct_id)
 fig, ax = plt.subplots(figsize=(6.4, 3.4))
 for lvl, lab, col in [(1, "Strong IP", BLUE), (0, "Weak IP", ORANGE)]:
     s = sv[sv.ip_strong == lvl]
@@ -684,15 +1026,25 @@ save(ax.figure, "fig09_rq3_cumulative_incidence.png")
 COVARS = ["ip_strong", "is_phase3", "n_locations", "is_industry", "is_biologic",
           "sponsor_prior_trials"]
 for cause, name in [(1, "completion"), (2, "termination")]:
-    cx = sv[["months_to_primary_completion", "status"] + COVARS].dropna().copy()
+    cx = sv[["months_to_primary_completion", "status", "cluster"] + COVARS].dropna().copy()
     cx["event"] = (cx.status == cause).astype(int)
     cx = cx.drop(columns="status")
-    cph = CoxPHFitter().fit(cx, duration_col="months_to_primary_completion", event_col="event")
+    cph = CoxPHFitter().fit(cx, duration_col="months_to_primary_completion",
+                            event_col="event", cluster_col="cluster")
     summ = cph.summary[["exp(coef)", "exp(coef) lower 95%", "exp(coef) upper 95%", "p"]]
+    # Schoenfeld (1983) is cited for the sample size but the assumption his test
+    # checks was never reported. A global p below .05 means the hazard ratio is not
+    # constant over follow-up and the single HR is a time-average.
+    ph = proportional_hazard_test(cph, cx, time_transform="rank")
+    ph_tbl = ph.summary
     results["rq3"][f"cox_{name}"] = {
         "n": int(len(cx)),
         "events": int(cx.event.sum()),
+        "n_clusters": int(cx.cluster.nunique()),
+        "standard_errors": "cluster-robust on the FDA application",
         "concordance": round(float(cph.concordance_index_), 4),
+        "ph_test_global_p": round(float(ph_tbl["p"].min()), 6),
+        "ph_violations_p05": [str(i) for i, r in ph_tbl.iterrows() if r["p"] < 0.05],
         "coefficients": {
             idx: {"hr": round(float(r["exp(coef)"]), 4),
                   "ci95": [round(float(r["exp(coef) lower 95%"]), 4),
@@ -704,6 +1056,49 @@ for cause, name in [(1, "completion"), (2, "termination")]:
     print(f"  cause-specific {name}: C = {cph.concordance_index_:.4f}, "
           f"HR(ip_strong) = {summ.loc['ip_strong', 'exp(coef)']:.4f}")
 
+    # Reporting that proportional hazards is rejected leaves the reader unable to
+    # judge how much it matters. Splitting follow-up at two years and re-fitting
+    # within each window makes the time-dependence legible: if the early and late
+    # hazard ratios bracket the pooled one and agree in direction, the time-average
+    # is conservative but usable, and if they cross, it is not interpretable at all.
+    # This is a diagnostic, not a substitute for the Fine-Gray subdistribution model
+    # scheduled for week 8.
+    pieces = {}
+    for lo, hi, lbl in [(0.0, 24.0, "0-24 months"), (24.0, np.inf, "over 24 months")]:
+        w = cx.copy()
+        if np.isfinite(hi):
+            w["event"] = np.where(w.months_to_primary_completion > hi, 0, w.event)
+            w["months_to_primary_completion"] = w.months_to_primary_completion.clip(upper=hi)
+        else:
+            w = w[w.months_to_primary_completion > lo].copy()
+        w = w[w.months_to_primary_completion > 0]
+        if w.event.sum() < 50 or w.event.nunique() < 2:
+            continue
+        try:
+            c2 = CoxPHFitter().fit(w, duration_col="months_to_primary_completion",
+                                   event_col="event", cluster_col="cluster")
+            r2 = c2.summary.loc["ip_strong"]
+            pieces[lbl] = {
+                "events": int(w.event.sum()),
+                "hr": round(float(r2["exp(coef)"]), 4),
+                "ci95": [round(float(r2["exp(coef) lower 95%"]), 4),
+                         round(float(r2["exp(coef) upper 95%"]), 4)],
+                "p": float(r2["p"]),
+            }
+        except Exception as exc:  # a window can be too thin to converge
+            pieces[lbl] = {"error": type(exc).__name__}
+    hrs = [v["hr"] for v in pieces.values() if "hr" in v]
+    results["rq3"][f"cox_{name}"]["piecewise_ip_strong"] = {
+        "note": "cause-specific Cox re-fitted within follow-up windows, so the "
+                "pooled hazard ratio can be read against its time-specific values",
+        "windows": pieces,
+        "same_direction": bool(hrs and (all(h < 1 for h in hrs) or all(h > 1 for h in hrs))),
+    }
+    _pw = results["rq3"][f"cox_{name}"]["piecewise_ip_strong"]
+    print("    piecewise HR(ip_strong): " + ", ".join(
+        f"{k} {v['hr']:.3f}" for k, v in pieces.items() if "hr" in v)
+        + f"  (same direction: {_pw['same_direction']})")
+
 # ----------------------------------------------------------------------------
 # 10. RQ4 - moderation by therapeutic area, preliminary
 # ----------------------------------------------------------------------------
@@ -713,12 +1108,52 @@ import statsmodels.formula.api as smf
 
 mod = frame[frame.ip_strong.notna()].copy()
 mod["ip_strong"] = mod.ip_strong.astype(int)
-m0 = smf.logit("is_terminated ~ ip_strong + C(therapeutic_area) + is_phase3 + is_industry",
-               data=mod).fit(disp=0)
-m1 = smf.logit("is_terminated ~ ip_strong * C(therapeutic_area) + is_phase3 + is_industry",
-               data=mod).fit(disp=0)
+mod["cluster"] = mod.appl_no.where(mod.appl_no.notna(), "NCT:" + mod.nct_id)
+F0 = "is_terminated ~ ip_strong + C(therapeutic_area) + is_phase3 + is_industry"
+F1 = "is_terminated ~ ip_strong * C(therapeutic_area) + is_phase3 + is_industry"
+m0 = smf.logit(F0, data=mod).fit(disp=0)
+m1 = smf.logit(F1, data=mod).fit(disp=0)
 lr_stat = float(2 * (m1.llf - m0.llf))
 df_diff = int(m1.df_model - m0.df_model)
+
+# The likelihood ratio test assumes independent observations, which the drug-level
+# index violates. A Wald test on the same interaction terms under a cluster-robust
+# covariance is the comparable statistic that does not.
+m1c = smf.logit(F1, data=mod).fit(disp=0, cov_type="cluster",
+                                  cov_kwds={"groups": mod.cluster})
+terms = [k for k in m1c.params.index if "ip_strong:" in k]
+names = list(m1c.params.index)
+R = np.zeros((len(terms), len(names)))
+for i, k in enumerate(terms):
+    R[i, names.index(k)] = 1.0
+wald = m1c.wald_test(R, scalar=True)
+
+# Holm across the stratum interactions, since six are tested and read individually.
+raw_p = np.array([float(m1c.pvalues[k]) for k in terms])
+order = np.argsort(raw_p)
+holm = np.empty_like(raw_p)
+running = 0.0
+for rank, j in enumerate(order):
+    running = max(running, (len(raw_p) - rank) * raw_p[j])
+    holm[j] = min(1.0, running)
+
+results["rq4_clustered"] = {
+    "n_clusters": int(mod.cluster.nunique()),
+    "wald_chi2": round(float(wald.statistic), 4),
+    "df": len(terms),
+    "p_value": float(wald.pvalue),
+    "interaction_terms": {
+        k: {"or": round(float(np.exp(m1c.params[k])), 4),
+            "p": float(m1c.pvalues[k]),
+            "p_holm": round(float(holm[i]), 4)}
+        for i, k in enumerate(terms)
+    },
+}
+print(f"  clustered Wald chi2 = {float(wald.statistic):.3f}, df = {len(terms)}, "
+      f"p = {float(wald.pvalue):.4f}  (naive LR p = {chi2_dist.sf(lr_stat, df_diff):.4f})")
+print(f"  strata significant after Holm: "
+      f"{sum(1 for v in results['rq4_clustered']['interaction_terms'].values() if v['p_holm'] < 0.05)}"
+      f"/{len(terms)}")
 results["rq4_moderation"] = {
     "n": int(len(mod)),
     "lr_chi2": round(lr_stat, 4),
@@ -731,6 +1166,53 @@ results["rq4_moderation"] = {
     },
 }
 print(f"  LR chi2 = {lr_stat:.3f}, df = {df_diff}, p = {chi2_dist.sf(lr_stat, df_diff):.4f}")
+
+# ----------------------------------------------------------------------------
+# 11. Entity-resolution precision, from the adjudicated sample
+# ----------------------------------------------------------------------------
+# Read back rather than retyped, on the same principle as everything else here:
+# the report quotes the audit, so the audit has to reach the report as data.
+VAL = ROOT / "data" / "validation"
+samp = pd.read_csv(VAL / "precision_sample_200.csv")
+wt = pd.read_csv(VAL / "precision_sample_weights.csv")
+verdict = samp.verdict.fillna("").str.strip().str.upper()
+done = samp[verdict.isin(["CORRECT", "WRONG", "PARTIAL"])].copy()
+if len(done):
+    print(f"\n[11] Entity-resolution precision ({len(done)}/{len(samp)} adjudicated)")
+    done["correct"] = verdict[done.index].isin(["CORRECT", "PARTIAL"]).astype(int)
+    done["strict"] = verdict[done.index].eq("CORRECT").astype(int)
+    rows = []
+    for meth, g in done.groupby("method"):
+        w = wt[wt.method == meth]
+        rows.append({"method": meth, "n_judged": len(g), "precision": g.correct.mean(),
+                     "strict_precision": g.strict.mean(),
+                     "pop_share": float(w.pop_share.iloc[0]) if len(w) else 0.0})
+    r = pd.DataFrame(rows)
+    r["pop_share"] = r.pop_share / r.pop_share.sum()
+    overall = float((r.pop_share * r.precision).sum())
+    strict = float((r.pop_share * r.strict_precision).sum())
+    se = float(np.sqrt((r.pop_share ** 2 * r.precision * (1 - r.precision) / r.n_judged).sum()))
+    results["entity_resolution_precision"] = {
+        "n_adjudicated": int(len(done)),
+        "n_sampled": int(len(samp)),
+        "weighting": "stratified by match method, weighted to population share",
+        "precision": round(overall, 4),
+        "strict_precision": round(strict, 4),
+        "se": round(se, 4),
+        "ci95": [round(overall - 1.96 * se, 4), round(overall + 1.96 * se, 4)],
+        "meets_90pct_target": bool(overall - 1.96 * se >= 0.90),
+        "by_method": [
+            {"method": x.method, "n_judged": int(x.n_judged),
+             "precision": round(float(x.precision), 4),
+             "strict_precision": round(float(x.strict_precision), 4),
+             "pop_share": round(float(x.pop_share), 4)}
+            for x in r.itertuples()
+        ],
+        "verdict_counts": {k: int(v) for k, v in verdict[done.index].value_counts().items()},
+    }
+    print(f"  weighted precision {overall:.4f} "
+          f"[{overall - 1.96 * se:.4f}, {overall + 1.96 * se:.4f}]  "
+          f"strict {strict:.4f}")
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
 OUT.write_text(json.dumps(results, indent=2, default=str))

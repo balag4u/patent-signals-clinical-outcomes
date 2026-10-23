@@ -127,10 +127,10 @@ years. So recent years look artificially bad. The share of trials with a known o
 2019 gives 82.8% resolved.
 
 **(b) Enrollment was thrown out.** The registry's enrollment field records how many patients
-*actually* enrolled — and a terminated trial has few, *because it stopped*. Median 11 for
-terminated trials versus 86 for completed. Used as a predictor it achieves AUC 0.79, which looks
+*actually* enrolled — and a terminated trial has few, *because it stopped*. Median 23 for
+terminated trials versus 86 for completed. Used as a predictor it achieves AUC 0.74, which looks
 impressive and is entirely circular. Among the few records still showing *planned* enrollment it
-achieves 0.47 — no signal at all. Excluded.
+achieves 0.48 — no signal at all. Excluded.
 
 **(d) Orange Book patent counts were double-counted.** Category counts were summed over product
 rows while the total used a distinct count, and one patent is listed against 3.15 products on
@@ -467,9 +467,9 @@ nothing and confirms the syntax, the join, and the output shape.
 Once joined, the analytic table gains roughly 10 IP columns. Then:
 
 - **RQ1** becomes real: split sponsors on `assignee_portfolio_size` instead of the trial-count proxy.
-- **RQ2** gets its IP block: the test is whether it beats the leakage-free baseline of **AUC 0.676**.
+- **RQ2** gets its IP block: the test is whether it beats the leakage-free baseline of **AUC 0.657**.
 - **RQ3** uses `family_size` as the breadth measure in the survival model.
 - **RQ4** tests whether any of it varies across the six therapeutic areas.
 
-That comparison against 0.676 is the whole experiment. If patent features do not move it, that is
+That comparison against 0.657 is the whole experiment. If patent features do not move it, that is
 a finding worth reporting, not a failure.

@@ -188,8 +188,30 @@ frame["appl_no"]    = [x[1] for x in res]
 frame["method"]     = [x[2] for x in res]
 frame["score"]      = [x[3] for x in res]
 frame["is_placebo_only"] = frame.raw.eq("")
-COMBO = re.compile(r"\b(AND|PLUS|WITH|COMBINATION|CO[- ]ADMINISTER\w*|\+)\b", re.I)
-frame["is_combination"] = frame.norm.str.contains(COMBO, na=False).astype(int)
+# Tested against raw, not norm: normalise() runs PUNCT over the string, so by the
+# time it returns, the "/" "+" and "," that delimit most regimens are already spaces
+# and only the spelled-out conjunctions survive. Parentheticals and bracketed brand
+# alternations are dropped first, and rate expressions (mg/kg, w/w) are removed so
+# their slashes do not read as a regimen delimiter.
+COMBO_PAREN = re.compile(r"\([^)]*\)|\[[^\]]*\]")
+COMBO_RATE  = re.compile(r"\d\s*[A-Z%]*\s*/\s*(KG|M2|ML|L|DAY|D|HR|H|DOSE|WEEK|WK|MIN)\b", re.I)
+COMBO_WW    = re.compile(r"\bW\s*/\s*[WV]\b", re.I)
+COMBO_CONJ  = re.compile(r"\b(AND|PLUS|WITH|COMBINATION|CO[- ]ADMINISTER\w*)\b", re.I)
+COMBO_DELIM = re.compile(r"[+/]")
+COMBO_COMMA = re.compile(r"[A-Z]{4,}\s*,\s*[A-Z]{4,}", re.I)
+
+
+def is_combination(raw):
+    """A regimen rather than a single agent. A comma counts only between two
+    drug-like words, so "N,N dimethyltryptamine" is not read as a combination."""
+    s = COMBO_PAREN.sub(" ", str(raw))
+    s = COMBO_WW.sub(" ", s)
+    s = COMBO_RATE.sub(" ", s)
+    return int(bool(COMBO_CONJ.search(s) or COMBO_DELIM.search(s)
+                    or COMBO_COMMA.search(s)))
+
+
+frame["is_combination"] = frame.raw.map(is_combination)
 
 p = os.path.join(OUT, "trial_drug_resolution.parquet")
 frame[["nct_id","raw","norm","ingredient","appl_no","method","score",
