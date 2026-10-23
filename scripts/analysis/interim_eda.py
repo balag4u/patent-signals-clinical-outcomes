@@ -675,6 +675,61 @@ for inc in results["rq2_increments"]:
     print(f"  + {inc['to'].split('+')[-1].strip():12s} dAUC {inc['delta_auc']:+.4f} "
           f"[{inc['ci95'][0]:+.4f}, {inc['ci95'][1]:+.4f}]  p = {inc['p_two_sided']:.3f}")
 
+# The increments above are computed on the whole holdout, where the drug-level IP
+# block is absent for roughly two-thirds of rows and the learner routes those down
+# a missing branch. A near-zero increment is therefore partly a measure of how often
+# the block is populated rather than of what it carries. The honest test of H2b is
+# the same comparison restricted to trials where the block exists, so both are
+# reported and the report draws its conclusion from the pair.
+print("  increments on the IP-computable subsample")
+sub = model_frame[model_frame.ob_n_patents.notna()]
+sub_train = sub[sub.start_year <= TRAIN_MAX]
+sub_test = sub[sub.start_year >= TEST_MIN]
+ysub = sub_test.is_terminated.to_numpy()
+rng_sub = np.random.default_rng(SEED + 1)
+sub_boot = [rng_sub.integers(0, len(ysub), len(ysub)) for _ in range(1000)]
+sub_auc = {}
+for set_name, feats in FEATURE_SETS.items():
+    g = HistGradientBoostingClassifier(
+        max_depth=4, learning_rate=0.06, max_iter=400, l2_regularization=1.0,
+        class_weight="balanced", early_stopping=True, validation_fraction=0.15,
+        random_state=SEED,
+    ).fit(sub_train[feats], sub_train.is_terminated)
+    pr = g.predict_proba(sub_test[feats])[:, 1]
+    vals = []
+    for b in sub_boot:
+        yb = ysub[b]
+        if yb.min() == yb.max():
+            continue
+        vals.append(roc_auc_score(yb, pr[b]))
+    sub_auc[set_name] = np.asarray(vals)
+
+
+def sub_increment(from_set, to_set):
+    d = sub_auc[to_set] - sub_auc[from_set]
+    lo, hi = np.percentile(d, [2.5, 97.5])
+    return {"from": from_set, "to": to_set,
+            "delta_auc": round(float(d.mean()), 4),
+            "ci95": [round(float(lo), 4), round(float(hi), 4)],
+            "p_two_sided": round(float(2 * min((d <= 0).mean(), (d >= 0).mean())), 4)}
+
+
+results["rq2_increments_subsample"] = {
+    "note": "Same nested comparison restricted to trials with an observable "
+            "drug-level IP block, so the block is populated for every row.",
+    "train_n": int(len(sub_train)),
+    "test_n": int(len(sub_test)),
+    "test_terminated": int(ysub.sum()),
+    "auc_full_model": round(float(np.mean(sub_auc["Design + sponsor + regulatory + IP"])), 4),
+    "increments": [
+        sub_increment("Design + sponsor", "Design + sponsor + regulatory"),
+        sub_increment("Design + sponsor + regulatory", "Design + sponsor + regulatory + IP"),
+    ],
+}
+for inc in results["rq2_increments_subsample"]["increments"]:
+    print(f"    [sub] + {inc['to'].split('+')[-1].strip():12s} dAUC {inc['delta_auc']:+.4f} "
+          f"[{inc['ci95'][0]:+.4f}, {inc['ci95'][1]:+.4f}]  p = {inc['p_two_sided']:.3f}")
+
 results["rq2_performance"] = perf
 results["rq2_split"] = {"train_n": len(train), "test_n": len(test),
                         "test_terminated": int(test.is_terminated.sum()),
@@ -683,6 +738,7 @@ results["rq2_split"] = {"train_n": len(train), "test_n": len(test),
 
 best_key = ("Design + sponsor + regulatory + IP", "Gradient-boosted trees (HistGB)")
 best_model, best_pr = fitted[best_key]
+feats_best = FEATURE_SETS[best_key[0]]
 
 # Figure 6 - ROC on the held-out period
 fig, ax = plt.subplots(figsize=(4.4, 4.0))
@@ -753,6 +809,135 @@ results["rq2_calibration"] = {
     "deciles": [{"decile": int(i) + 1, "predicted": round(float(r.pred), 4),
                  "observed": round(float(r.obs), 4), "n": int(r.n)} for i, r in cal.iterrows()],
 }
+
+# The calibration failure is a level shift, which class weighting produces, so it
+# should yield to a one-parameter correction: hold the slope at one and re-estimate
+# the intercept only. The correction is fitted on the TRAINING period and then
+# applied unchanged to the holdout. Fitting it on the holdout would report the
+# in-sample fit of the correction itself, which cannot fail and would prove nothing.
+# The holdout-fitted value is carried alongside only to show what the transfer costs.
+print("  intercept-only recalibration (fitted on train, applied to holdout)")
+pc_tr = np.clip(best_model.predict_proba(train[feats_best])[:, 1], eps, 1 - eps)
+lp_tr = np.log(pc_tr / (1 - pc_tr))
+a_train = float(
+    sm.GLM(train.is_terminated.to_numpy(), np.ones((len(train), 1)),
+           family=sm.families.Binomial(), offset=lp_tr).fit().params[0]
+)
+a_test = float(
+    sm.GLM(test.is_terminated.to_numpy(), np.ones((len(test), 1)),
+           family=sm.families.Binomial(), offset=lp).fit().params[0]
+)
+pr_corr = 1.0 / (1.0 + np.exp(-(lp + a_train)))
+cal_fit_c = sm.Logit(test.is_terminated.to_numpy(),
+                     sm.add_constant(np.log(np.clip(pr_corr, eps, 1 - eps) /
+                                            (1 - np.clip(pr_corr, eps, 1 - eps))))).fit(disp=0)
+results["rq2_calibration_corrected"] = {
+    "method": "intercept-only (slope fixed at 1) logistic offset correction; the "
+              "offset is estimated on the 2008-2015 training period and applied "
+              "unchanged to the 2016-2019 holdout",
+    "intercept_offset_fitted_on_train": round(a_train, 4),
+    "intercept_offset_fitted_on_holdout": round(a_test, 4),
+    "transfer_gap": round(a_test - a_train, 4),
+    "slope_after": round(float(cal_fit_c.params[1]), 4),
+    "intercept_after": round(float(cal_fit_c.params[0]), 4),
+    "mean_predicted_risk_after": round(float(pr_corr.mean()), 4),
+    "observed_rate": round(observed, 4),
+    "over_prediction_ratio_after": round(float(pr_corr.mean()) / observed, 3),
+    "brier_before": round(float(brier_score_loss(test.is_terminated, best_pr)), 4),
+    "brier_after": round(float(brier_score_loss(test.is_terminated, pr_corr)), 4),
+    "auc_unchanged": round(float(roc_auc_score(test.is_terminated, pr_corr)), 4),
+}
+_rc = results["rq2_calibration_corrected"]
+print(f"    offset {a_train:+.4f} (holdout-fitted {a_test:+.4f})  "
+      f"mean predicted {_rc['mean_predicted_risk_after']:.4f} vs observed {observed:.4f}  "
+      f"ratio {_rc['over_prediction_ratio_after']:.3f}")
+
+# ----------------------------------------------------------------------------
+# RQ1 selection: the drug-level index exists only where a drug reached an approved
+# FDA application, so the RQ1 estimate describes an approval-selected population.
+# Two treatments are reported. Inverse-probability weighting reweights the observed
+# subsample to the full frame on design and sponsor covariates, which identifies the
+# frame-level risk difference if observability is ignorable given those covariates.
+# That assumption is not testable here, so worst-case bounds are reported alongside:
+# the outcome IS known for every trial in the frame, and only the IP class is
+# unknown, so assigning the unobserved trials wholly to one group and then the other
+# brackets the risk difference without any assumption at all.
+# ----------------------------------------------------------------------------
+print("\n[9b] RQ1 selection: inverse-probability weighting and worst-case bounds")
+sel = frame.copy()
+sel["observed_ip"] = sel.ob_n_patents.notna().astype(int)
+sel_X = sel[DESIGN + SPONSOR].copy()
+sel_X = sel_X.fillna(sel_X.median(numeric_only=True))
+sel_fit = sm.Logit(sel.observed_ip.to_numpy(),
+                   sm.add_constant(sel_X.to_numpy(dtype=float))).fit(disp=0)
+pi_hat = np.clip(sel_fit.predict(sm.add_constant(sel_X.to_numpy(dtype=float))), 0.02, 0.98)
+sel["w"] = np.where(sel.observed_ip == 1, 1.0 / pi_hat, 0.0)
+o = sel[sel.observed_ip == 1]
+ws, ww = o[o.ip_strong == 1], o[o.ip_strong == 0]
+
+
+def wmean(g):
+    return float(np.average(g.is_terminated, weights=g.w))
+
+
+rd_ipw = wmean(ws) - wmean(ww)
+n_unobs = int((sel.observed_ip == 0).sum())
+p_unobs = float(sel.loc[sel.observed_ip == 0, "is_terminated"].mean())
+n_s, n_w = int((o.ip_strong == 1).sum()), int((o.ip_strong == 0).sum())
+p_s, p_w = float(o.loc[o.ip_strong == 1, "is_terminated"].mean()), float(o.loc[o.ip_strong == 0, "is_terminated"].mean())
+# Upper bound on the risk difference: the unobserved go to the strong group.
+rd_hi = ((n_s * p_s + n_unobs * p_unobs) / (n_s + n_unobs)) - p_w
+# Lower bound: the unobserved go to the weak group.
+rd_lo = p_s - ((n_w * p_w + n_unobs * p_unobs) / (n_w + n_unobs))
+results["rq1_selection"] = {
+    "observed_n": int(len(o)),
+    "unobserved_n": n_unobs,
+    "p_term_unobserved": round(p_unobs, 4),
+    "ipw": {
+        "method": "inverse probability of observability, propensity on design and "
+                  "sponsor blocks, weights trimmed to [0.02, 0.98]",
+        "risk_difference": round(rd_ipw, 4),
+        "unweighted_risk_difference": round(p_s - p_w, 4),
+        "effective_n": round(float(o.w.sum()), 1),
+        "assumption": "observability ignorable given the design and sponsor blocks",
+    },
+    "worst_case_bounds": {
+        "method": "outcome is observed for all 39,437 trials and only the IP class "
+                  "is unknown, so the unobserved are assigned wholly to one group "
+                  "and then the other; no ignorability assumption",
+        "risk_difference_lower": round(rd_lo, 4),
+        "risk_difference_upper": round(rd_hi, 4),
+        "sign_identified": bool(rd_lo < 0 and rd_hi < 0),
+    },
+}
+print(f"  IPW risk difference {rd_ipw:+.4f} (unweighted {p_s - p_w:+.4f})")
+print(f"  worst-case bounds [{rd_lo:+.4f}, {rd_hi:+.4f}]  "
+      f"sign identified: {results['rq1_selection']['worst_case_bounds']['sign_identified']}")
+
+# ----------------------------------------------------------------------------
+# Unresolved outcomes: 8,173 in-window trials are dropped for having no resolved
+# status. That exclusion conditions on a variable related to the outcome, so the
+# termination probability is bracketed by assigning the dropped trials wholly to
+# completion and then wholly to termination. The bounds are wide by construction;
+# the point is that the reported rate is not a point estimate of the in-window rate.
+# ----------------------------------------------------------------------------
+unres_n = int(n_window - len(frame))
+term_n = int(frame.is_terminated.sum())
+results["unresolved_sensitivity"] = {
+    "in_window_n": int(n_window),
+    "resolved_n": int(len(frame)),
+    "unresolved_n": unres_n,
+    "p_terminated_resolved_only": round(float(frame.is_terminated.mean()), 4),
+    "p_terminated_if_all_unresolved_complete": round(term_n / n_window, 4),
+    "p_terminated_if_all_unresolved_terminate": round((term_n + unres_n) / n_window, 4),
+    "note": "Unresolved trials are disproportionately later-starting and still "
+            "active; the resolved-only rate is the estimand the study reports and "
+            "the bounds state what the exclusion could at most be hiding.",
+}
+_us = results["unresolved_sensitivity"]
+print(f"  p(termination) resolved-only {_us['p_terminated_resolved_only']:.4f}  "
+      f"bounds [{_us['p_terminated_if_all_unresolved_complete']:.4f}, "
+      f"{_us['p_terminated_if_all_unresolved_terminate']:.4f}]")
 
 # Figure 8 - permutation importance, model-agnostic and computed on held-out data
 print("  permutation importance (held-out, 10 repeats)")
@@ -870,6 +1055,49 @@ for cause, name in [(1, "completion"), (2, "termination")]:
     }
     print(f"  cause-specific {name}: C = {cph.concordance_index_:.4f}, "
           f"HR(ip_strong) = {summ.loc['ip_strong', 'exp(coef)']:.4f}")
+
+    # Reporting that proportional hazards is rejected leaves the reader unable to
+    # judge how much it matters. Splitting follow-up at two years and re-fitting
+    # within each window makes the time-dependence legible: if the early and late
+    # hazard ratios bracket the pooled one and agree in direction, the time-average
+    # is conservative but usable, and if they cross, it is not interpretable at all.
+    # This is a diagnostic, not a substitute for the Fine-Gray subdistribution model
+    # scheduled for week 8.
+    pieces = {}
+    for lo, hi, lbl in [(0.0, 24.0, "0-24 months"), (24.0, np.inf, "over 24 months")]:
+        w = cx.copy()
+        if np.isfinite(hi):
+            w["event"] = np.where(w.months_to_primary_completion > hi, 0, w.event)
+            w["months_to_primary_completion"] = w.months_to_primary_completion.clip(upper=hi)
+        else:
+            w = w[w.months_to_primary_completion > lo].copy()
+        w = w[w.months_to_primary_completion > 0]
+        if w.event.sum() < 50 or w.event.nunique() < 2:
+            continue
+        try:
+            c2 = CoxPHFitter().fit(w, duration_col="months_to_primary_completion",
+                                   event_col="event", cluster_col="cluster")
+            r2 = c2.summary.loc["ip_strong"]
+            pieces[lbl] = {
+                "events": int(w.event.sum()),
+                "hr": round(float(r2["exp(coef)"]), 4),
+                "ci95": [round(float(r2["exp(coef) lower 95%"]), 4),
+                         round(float(r2["exp(coef) upper 95%"]), 4)],
+                "p": float(r2["p"]),
+            }
+        except Exception as exc:  # a window can be too thin to converge
+            pieces[lbl] = {"error": type(exc).__name__}
+    hrs = [v["hr"] for v in pieces.values() if "hr" in v]
+    results["rq3"][f"cox_{name}"]["piecewise_ip_strong"] = {
+        "note": "cause-specific Cox re-fitted within follow-up windows, so the "
+                "pooled hazard ratio can be read against its time-specific values",
+        "windows": pieces,
+        "same_direction": bool(hrs and (all(h < 1 for h in hrs) or all(h > 1 for h in hrs))),
+    }
+    _pw = results["rq3"][f"cox_{name}"]["piecewise_ip_strong"]
+    print("    piecewise HR(ip_strong): " + ", ".join(
+        f"{k} {v['hr']:.3f}" for k, v in pieces.items() if "hr" in v)
+        + f"  (same direction: {_pw['same_direction']})")
 
 # ----------------------------------------------------------------------------
 # 10. RQ4 - moderation by therapeutic area, preliminary
