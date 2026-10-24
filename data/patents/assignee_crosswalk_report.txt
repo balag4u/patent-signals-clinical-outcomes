@@ -1,0 +1,144 @@
+Assignee crosswalk report
+========================================================================
+
+dictionary rows in                  1563
+curated names in                     149
+corporate groups in                   71
+
+proposed links                       571
+  A_exact                            223
+  B_subsidiary                       273
+  C_parent                            44
+  D_review                            31
+
+groups with no link at all             0 of 71  <- the real gap
+curated names not chosen for a row    10 of 149
+  subsumed by a stronger match        10
+  in a group with no link at all       0
+
+unclaimed dictionary rows            997
+  LIKELY_PERSON                      449  (9,283 patents)
+  NON_PHARMA                         169  (199,759 patents)
+  REVIEW                             379  (53,496 patents)
+
+------------------------------------------------------------------------
+DECIDE THESE: largest unclaimed rows marked REVIEW
+------------------------------------------------------------------------
+A large patent count here means a real assignee the curated list
+does not name. Each is either a missing name or a different firm.
+
+    13,026  SUMITOMO CHEMICAL CO
+     4,932  MITSUBISHI CHEM CORP
+     2,354  TAKEDA CHEMICAL INDUSTRIES LTD
+     1,533  NIDEC SANKYO CORP
+     1,379  KYOWA HAKKO KOGYO KK
+     1,344  ROCHE MOLECULAR SYSTEMS INC
+     1,261  MITSUBISHI CHEM IND
+     1,191  BOEHRINGER MANNHEIM GMBH
+       809  ISIS INNOVATION
+       663  SANKYO SEIKI SEISAKUSHO KK
+       654  BOEHRINGER SOHN INGELHEIM
+       566  ROCHE PALO ALTO LLC
+       485  ABBOTT POINT OF CARE INC
+       426  BOEHRINGER INGELHEIM VETMEDICA GMBH
+       422  DAIICHI SEIYAKU CO
+       388  BOEHRINGER INGELHEIM VETMED
+       384  BEHRINGWERKE AG
+       382  CHIESI FARM SPA
+       382  KIRIN BREWERY
+       355  MITSUBISHI PLASTICS INC
+       339  TOSHIBA MITSUBISHI ELEC IND
+       337  MITSUBISHI AIRCRAFT CORP
+       332  SUMITOMO SPEC METALS
+       319  OTSUKA CHEMICAL CO LTD
+       316  ASTEX THERAPEUTICS LTD
+       305  TOSHIBA MITSUBISHI ELEC INC
+       301  Shanghai hengrui pharmaceutical co ltd
+       292  ABBOTT GMBH & CO KG
+       286  MITSUBISHI ENG PLASTICS CORP
+       283  MERCK FROSST CANADA INC
+
+------------------------------------------------------------------------
+CURATED NAMES NOT CHOSEN FOR A ROW
+------------------------------------------------------------------------
+Most of these are harmless. Where two curated names in one group
+reduce to the same tokens, only the stronger tier is kept, so
+F HOFFMANN LA ROCHE AG disappears behind HOFFMANN LA ROCHE INC
+while the Roche group itself is well covered. Read the group
+column, not this list, to judge coverage.
+
+  subsumed   ASTRAZENECA    ASTRAZENECA UK LIMITED
+  subsumed   BAYER          BAYER INTELLECTUAL PROPERTY GMBH
+  subsumed   CSL            CSL LIMITED
+  subsumed   INCYTE         INCYTE HOLDINGS CORP
+  subsumed   MERCK_KGAA     EMD SERONO
+  subsumed   MERCK_US       MERCK SHARP & DOHME LLC
+  subsumed   NOVARTIS       NOVARTIS VACCINES
+  subsumed   PFIZER         WYETH
+  subsumed   ROCHE          F HOFFMANN LA ROCHE AG
+  subsumed   UCB            UCB PHARMA SA
+
+------------------------------------------------------------------------
+LARGEST ROWS FLAGGED NON_PHARMA
+------------------------------------------------------------------------
+Patenting outside drug development. Keeping them measures firm
+size; dropping them narrows the portfolio to therapeutics.
+
+    64,014  MITSUBISHI ELECTRIC CORP                     (ELECTRIC)
+    20,758  SUMITOMO ELECTRIC INDUSTRIES                 (ELECTRIC)
+    13,086  SUMITOMO WIRING SYSTEMS                      (WIRING)
+    12,015  BAYERISCHE MOTOREN WERKE AG                  (MOTOREN)
+    11,572  MITSUBISHI HEAVY IND LTD                     (HEAVY)
+     7,568  SUMITOMO RUBBER IND                          (RUBBER)
+     6,431  DAINIPPON PRINTING CO LTD                    (PRINTING)
+     4,164  ETHICON ENDO SURGERY INC                     (SURGERY)
+     3,969  MITSUBISHI GAS CHEMICAL CO                   (GAS)
+     3,385  ABBOTT DIABETES CARE INC                     (DIABETES)
+     3,049  DAINIPPON INK & CHEMICALS                    (INK)
+     3,016  MITSUBISHI MATERIALS CORP                    (MATERIALS)
+     2,909  NIPPON STEEL & SUMITOMO METAL CORP           (METAL)
+     2,611  SUMITOMO HEAVY INDUSTRIES                    (HEAVY)
+     2,411  DAINIPPON SCREEN MFG                         (SCREEN)
+     2,283  MITSUBISHI MOTORS CORP                       (MOTORS)
+     2,264  MITSUBISHI RAYON CO                          (RAYON)
+     1,930  ROCHE DIAGNOSTICS OPERATIONS                 (DIAGNOSTICS)
+     1,796  SUMITOMO METAL MINING CO                     (METAL)
+     1,660  ABBOTT CARDIOVASCULAR SYSTEMS                (CARDIOVASCULAR)
+       500  NOVARTIS VACCINES & DIAGNOSTIC               (linked to NOVARTIS)
+       361  ORION ELECTRIC CO LTD                        (linked to ORION)
+       176  ABBOTT LAB VASCULAR ENTPR LTD                (linked to ABBVIE)
+       107  BAYER AGROCHEM KK                            (linked to BAYER)
+        34  SCHERING AGROCHEMICALS LTD                   (linked to MERCK_US)
+        30  GRIFOLS DIAGNOSTIC SOLUTIONS INC             (linked to GRIFOLS)
+        28  PASTEUR SANOFI DIAGNOSTICS                   (linked to SANOFI)
+        14  NOVARTIS VACCINES & DIAGNOSTICS INC          (linked to NOVARTIS)
+
+------------------------------------------------------------------------
+SAMPLE OF ROWS FLAGGED LIKELY_PERSON
+------------------------------------------------------------------------
+Individual inventors sharing a surname with a firm. LIKELY_PERSON
+and REVIEW are both excluded from linking, so a row in the wrong
+one of the two costs reading time, not accuracy. Only a wrong
+LINK corrupts a portfolio.
+
+       121  NAKASHIMA DAIICHIRO
+       109  AVENTIS PASTEUR
+       105  TAKEDA TAKASHI
+        97  TANABE KOJI
+        84  REDDY B RAGHAVA
+        82  ROCHE OLIVIER
+        80  TAKEDA KAZUAKI
+        75  TAKEDA ARIHIRO
+        63  ENDO AKIRA
+        61  ENDO MASATO
+        59  ROCHE MARTIN
+        59  PARTHASARADHI REDDY BANDI
+        58  ENDO TAKESHI
+        57  OTSUKA HIROSHI
+        57  BAYERER REINHOLD
+        55  SUMITOMO TAKAMICHI
+        54  OTSUKA KAGAKU YAKUHIN
+        53  ENDO YUTA
+        51  RATHNAKAR REDDY KURA
+        50  TANABE YASUHIKO
+
