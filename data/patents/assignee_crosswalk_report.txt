@@ -1,25 +1,25 @@
 Assignee crosswalk report
 ========================================================================
 
-dictionary rows in                  2126
-curated names in                     283
+dictionary rows in                  2149
+curated names in                     295
 corporate groups in                  205
 
-proposed links                       725
-  A_exact                            334
-  B_subsidiary                       297
+proposed links                       749
+  A_exact                            348
+  B_subsidiary                       307
   C_parent                            63
   D_review                            31
 
 groups with no link at all            21 of 205  <- the real gap
-curated names not chosen for a row    31 of 283
-  subsumed by a stronger match        10
+curated names not chosen for a row    32 of 295
+  subsumed by a stronger match        11
   in a group with no link at all      21
 
-unclaimed dictionary rows           1406
-  LIKELY_PERSON                      548  (11,278 patents)
+unclaimed dictionary rows           1405
+  LIKELY_PERSON                      549  (11,295 patents)
   NON_PHARMA                         179  (200,449 patents)
-  REVIEW                             679  (71,381 patents)
+  REVIEW                             677  (71,366 patents)
 
 ------------------------------------------------------------------------
 DECIDE THESE: largest unclaimed rows marked REVIEW
@@ -67,6 +67,7 @@ F HOFFMANN LA ROCHE AG disappears behind HOFFMANN LA ROCHE INC
 while the Roche group itself is well covered. Read the group
 column, not this list, to judge coverage.
 
+  subsumed   ASTELLAS       AUDENTES THERAPEUTICS
   subsumed   ASTRAZENECA    ASTRAZENECA UK LIMITED
   subsumed   BAYER          BAYER INTELLECTUAL PROPERTY GMBH
   subsumed   CSL            CSL LIMITED
@@ -184,8 +185,8 @@ LINK corrupts a portfolio.
         63  ENDO AKIRA
         61  WILLIAMS OIL O MATIC HEATING
         61  ENDO MASATO
-        59  ROCHE MARTIN
         59  PARTHASARADHI REDDY BANDI
+        59  ROCHE MARTIN
         58  ENDO TAKESHI
         57  BAYERER REINHOLD
         57  OTSUKA HIROSHI
