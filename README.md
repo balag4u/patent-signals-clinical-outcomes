@@ -194,6 +194,49 @@ for, which is no effect at all.
 
 This is why the study was designed with a company-level measure from the start.
 
+## How far the null has been tested
+
+A null result is only worth reporting if it can survive the obvious objections.
+Three were put to it, in order, each answering a different one.
+
+**First: is the null an artefact of measuring too few companies?**
+The measured company list was widened from 71 corporate groups to 184, and from
+149 search names to 736. Coverage of industry-sponsored trials rose from 56.4%
+to 64.4%, adding 1,634 trials to the comparison. The patent contribution did
+not move.
+
+**Second: is the null an artefact of too crude a patent measure?**
+Six further patent indicators were added, each already standard in the patent
+economics literature: how many technology classes a patent is filed under,
+which is the accepted stand-in for how broad its claims are; whether it is
+co-owned, which signals a partnership or licence; the size of the inventing
+team; how much earlier work it builds on; how long the patent office took to
+grant it; and, for biologics, how many biosimilar competitors the product
+faces. The patent contribution still did not move, and the claim-breadth
+measure ranks 45th of 46 features, contributing nothing.
+
+**Third: is the null an artefact of a bias pointing towards it?**
+Twelve acquired companies were being routed to their parent for trial matching
+but had no name to look up in the patent data, so their patents were never
+retrieved. This understates the portfolios of acquisitive companies, and the
+most acquisitive companies are the largest, so the error dragged measured
+strength down for exactly the firms expected to score highest. Retrieving them
+added 8,822 patents, including 5,430 for one company alone. The patent
+contribution did not move.
+
+**What the three together establish.** The measure is now wider, richer and
+free of its one known directional bias, and the answer is the same each time.
+The remaining estimate of the difference in stop rates is 0.79 percentage
+points with a confidence interval from -2.12 to +0.53, against a sample able to
+detect 1.89 points. The estimate also sits on either side of zero depending on
+which companies are measured, while staying equally far from significance,
+which is how an estimate behaves when the quantity it estimates is zero.
+
+**What this does not rule out.** Patent strength is measured here from portfolio
+size, pharmaceutical focus and remaining term. A sponsor-level measure of
+patent quality and geographic breadth is not yet built, and 35.6% of industry
+trials still have no measurable sponsor portfolio.
+
 ## How patent strength is defined
 
 The combined score uses five dimensions. The ones that do not simply track

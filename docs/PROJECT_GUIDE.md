@@ -374,6 +374,32 @@ patents exist whether or not a particular drug reaches the market.
 This is why the company-level measure was specified from the start, and why the
 drug-level result is reported as a checking sample rather than a finding.
 
+### How far the null has been tested
+
+A null is only worth reporting if it can survive the obvious objections. Three
+were put to it, in order, each answering a different one.
+
+| Objection | What was done | Result |
+|---|---|---|
+| The measure covers too few companies | Widened from 71 corporate groups to 184, and from 149 search names to 736, taking industry coverage from 56.4% to 64.4% and adding 1,634 trials | No change |
+| The measure is too crude | Added six further patent indicators, including the accepted stand-in for claim breadth, co-ownership, inventing-team size, prior art, prosecution length, and biosimilar competition for biologics | No change; the claim-breadth measure ranks 45th of 46 features |
+| The measure is biased towards the null | Retrieved the patents of twelve acquired companies that were routed to their parent for trial matching but never searched for in the patent data, which had understated the most acquisitive and therefore largest firms. 8,822 patents recovered | No change |
+
+The third objection was the serious one. An error that understates the
+portfolios of the biggest companies drags any real effect towards zero, which
+is the direction of the reported finding. Removing it was the only way to say
+the null is not self-inflicted.
+
+What remains is a difference of 0.79 percentage points with a confidence
+interval from -2.12 to +0.53, against a sample able to detect 1.89 points. The
+estimate sits on either side of zero depending on which companies are measured
+while staying equally far from significance, which is how an estimate behaves
+when the quantity it estimates is zero.
+
+This does not rule out an effect of patent **quality** or **geographic
+breadth** at company level, which are not yet built, and 35.6% of industry
+trials still have no measurable sponsor portfolio.
+
 ---
 
 ## 6. How the sample size was worked out
