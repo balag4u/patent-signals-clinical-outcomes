@@ -70,3 +70,16 @@ print(f"applications={len(m):,} with_patents={int(m.ob_has_patent.sum()):,} -> {
 pn = sorted(set(pat.Patent_No.dropna().str.strip()))
 open(os.path.join(OUT, "orangebook_patent_numbers.txt"), "w").write("\n".join(pn))
 print(f"unique patent numbers for BigQuery: {len(pn):,}")
+
+# Persist the patent-to-application pairs. The aggregate above keeps only counts
+# per application, so the link from an individual patent back to its FDA
+# application is lost. prep_13_patents.py needs it to attach the forward
+# citations and INPADOC family sizes returned by sql/02 to a trial, and without
+# this file the QUALITY and BREADTH dimensions of the IP index cannot be built
+# at all. `pat` is already de-duplicated to one row per (appl_no, Patent_No).
+pm = pat[["appl_no", "Patent_No"]].rename(columns={"Patent_No": "patent_no"}).copy()
+pm["patent_no"] = pm.patent_no.str.strip()
+pm = pm[pm.patent_no.notna() & (pm.patent_no != "")]
+pmp = os.path.join(OUT, "orangebook_patent_appl_map.parquet")
+pm.to_parquet(pmp, index=False, compression="zstd")
+print(f"patent/application pairs: {len(pm):,} -> {pmp}")
