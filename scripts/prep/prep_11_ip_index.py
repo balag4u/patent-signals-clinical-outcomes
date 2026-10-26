@@ -165,7 +165,10 @@ cols = ["nct_id","ip_index","ip_index_drug","ip_index_sponsor","ip_index_source"
         "assignee_portfolio_size","assignee_pharma_share",
         # drug-level patent quality and breadth from sql/02: RQ2 predictors,
         # not composite components (see the note above SPONSOR_SCALE_FREE)
-        "citations_per_patent","family_size","family_n_countries"]
+        "citations_per_patent","family_size","family_n_countries",
+        # further patent indicators and biosimilar competition, all RQ2
+        # predictors rather than composite components
+        "cpc_codes_per_patent","assignees_per_patent","inventors_per_patent","backward_citations_per_patent","years_priority_to_grant","pb_is_biosimilar","pb_is_interchangeable","pb_is_originator","pb_n_competing_biosimilars"]
 p = os.path.join(OUT, "ip_index.parquet")
 df[[c for c in cols if c in df.columns]].to_parquet(p, index=False, compression="zstd")
 

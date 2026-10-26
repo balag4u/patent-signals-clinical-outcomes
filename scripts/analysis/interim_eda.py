@@ -156,6 +156,20 @@ print("\n[2] Sponsor history (past-only)")
 
 frame = frame.sort_values("start_date").reset_index(drop=True)
 
+# Phase and sponsor class were each collapsed to a single yes/no flag, which
+# merges groups that behave differently. In this frame PHASE1|PHASE2 trials are
+# stopped 29.0% of the time against 24.2% for PHASE2 alone, yet both read as
+# "not Phase 3". Among sponsors, government bodies other than the NIH stop
+# 15.5% of trials, lower than industry's 19.0%, while the NIH stops 26.3%, yet
+# all three read as "not industry". The flags below keep those apart.
+_ph = frame.phases.astype(str).str.upper()
+frame["is_phase1_2"] = _ph.eq("PHASE1|PHASE2").astype(int)
+frame["is_phase2_3"] = _ph.eq("PHASE2|PHASE3").astype(int)
+_sc = frame.lead_sponsor_class.astype(str).str.upper()
+for _lab, _col in [("NIH", "sponsor_is_nih"), ("OTHER_GOV", "sponsor_is_other_gov"),
+                   ("NETWORK", "sponsor_is_network"), ("FED", "sponsor_is_fed")]:
+    frame[_col] = _sc.eq(_lab).astype(int)
+
 # Two "as of" rules, because the two facts become knowable at different times.
 # How many trials a sponsor has already registered IS visible at the focal trial's
 # start date, so prior_trials counts trials STARTED earlier. How those trials turned
@@ -237,7 +251,8 @@ frame = frame.merge(ob[ob_cols].drop_duplicates("appl_no"), on="appl_no", how="l
 frame = frame.merge(
     ip[["nct_id", "ip_index", "ip_index_sponsor", "ip_index_drug", "ip_strong", "ip_tertile_extreme",
         "ob_term_remaining_yrs", "assignee_portfolio_size", "assignee_pharma_share",
-        "citations_per_patent", "family_size", "family_n_countries"]],
+        "citations_per_patent", "family_size", "family_n_countries",
+        "cpc_codes_per_patent", "assignees_per_patent", "inventors_per_patent", "backward_citations_per_patent", "years_priority_to_grant", "pb_is_biosimilar", "pb_is_interchangeable", "pb_is_originator", "pb_n_competing_biosimilars"]],
     on="nct_id",
     how="left",
 )
@@ -266,8 +281,12 @@ DESIGN = [
     "is_randomized", "who_masked_n", "n_arms", "n_locations", "n_countries",
     "is_multinational", "elig_criteria_lines", "n_primary_outcomes",
     "n_secondary_outcomes", "is_phase3", "n_interventions", "is_biologic",
+    "is_phase1_2", "is_phase2_3",
 ]
-SPONSOR = ["is_industry", "n_collaborators", "sponsor_prior_trials", "sponsor_prior_completion_rate"]
+SPONSOR = ["is_industry", "n_collaborators", "sponsor_prior_trials",
+           "sponsor_prior_completion_rate",
+           "sponsor_is_nih", "sponsor_is_other_gov", "sponsor_is_network",
+           "sponsor_is_fed"]
 REGULATORY = ["fda_any_priority", "fda_has_orphan", "fda_is_nme", "fda_n_efficacy_suppl"]
 IP_DRUG = [
     "ob_n_patents", "ob_n_primary_patents", "ob_n_secondary_patents",
@@ -276,13 +295,24 @@ IP_DRUG = [
     # are Orange Book patents, so they are drug-level and sparse; trees handle
     # the missingness, and they are excluded from the RQ1 composite.
     "family_size", "family_n_countries", "citations_per_patent",
+    # further indicators returned by 01_patent_core.sql. cpc_codes_per_patent is
+    # the accepted stand-in for how broad a patent's claims are, which cannot be
+    # measured directly here; assignees_per_patent above 1 means the patent is
+    # co-owned, which usually signals a partnership or licence.
+    "cpc_codes_per_patent", "assignees_per_patent", "inventors_per_patent",
+    "backward_citations_per_patent", "years_priority_to_grant",
 ]
+# Biosimilar competition, from the Purple Book. Biologics carry no duty to list
+# their patents, so for them the number of competitors is a more direct measure
+# of commercial pressure than any patent count.
+BIOSIMILAR = ["pb_is_biosimilar", "pb_is_interchangeable", "pb_is_originator",
+              "pb_n_competing_biosimilars"]
 # Sponsor-level IP, from prep_13_patents.py. These are the survivorship-safe
 # measures: they do not require the drug to have reached an approved FDA
 # application, which the Orange Book block does. Both are cumulative as of the
 # trial's start year, so neither can leak the outcome.
 IP_SPONSOR = ["assignee_portfolio_size", "assignee_pharma_share"]
-CANDIDATES = DESIGN + SPONSOR + REGULATORY + IP_DRUG + IP_SPONSOR
+CANDIDATES = DESIGN + SPONSOR + REGULATORY + IP_DRUG + IP_SPONSOR + BIOSIMILAR
 
 miss = pd.DataFrame(
     {
@@ -294,7 +324,7 @@ miss["pct_missing"] = (miss.n_missing / len(frame) * 100).round(2)
 miss["block"] = (
     ["Design"] * len(DESIGN) + ["Sponsor"] * len(SPONSOR)
     + ["Regulatory"] * len(REGULATORY) + ["IP (drug level)"] * len(IP_DRUG)
-    + ["IP (sponsor level)"] * len(IP_SPONSOR)
+    + ["IP (sponsor level)"] * len(IP_SPONSOR) + ["Biosimilar"] * len(BIOSIMILAR)
 )
 results["missingness"] = miss.to_dict("records")
 print(miss.sort_values("pct_missing", ascending=False).head(12).to_string(index=False))
@@ -446,7 +476,8 @@ fig, ax = plt.subplots(figsize=(6.4, 3.6))
 m = miss.sort_values("pct_missing")
 m = m[m.pct_missing > 0]
 block_color = {"Design": BLUE, "Sponsor": BLUE, "Regulatory": ORANGE,
-               "IP (drug level)": AQUA, "IP (sponsor level)": AQUA}
+               "IP (drug level)": AQUA, "IP (sponsor level)": AQUA,
+               "Biosimilar": ORANGE}
 ax.barh(np.arange(len(m)), m.pct_missing, color=[block_color[b] for b in m.block], height=0.66)
 for y, v in enumerate(m.pct_missing):
     ax.text(v + 0.7, y, f"{v:.1f}%", va="center", fontsize=8, color=INK)
@@ -1026,7 +1057,8 @@ top = imp.head(16).iloc[::-1]
 fig, ax = plt.subplots(figsize=(6.4, 4.4))
 block_of = {**{c: "Design" for c in DESIGN}, **{c: "Sponsor" for c in SPONSOR},
             **{c: "Regulatory" for c in REGULATORY}, **{c: "IP" for c in IP_DRUG},
-            **{c: "IP" for c in IP_SPONSOR}}
+            **{c: "IP" for c in IP_SPONSOR},
+            **{c: "IP" for c in BIOSIMILAR}}
 cmap = {"Design": BLUE, "Sponsor": BLUE, "Regulatory": ORANGE, "IP": AQUA}
 ax.barh(np.arange(len(top)), top["drop"], color=[cmap[block_of[f]] for f in top.feature],
         height=0.66, xerr=top.sd, error_kw=dict(ecolor=INK_SOFT, elinewidth=0.8))

@@ -197,14 +197,63 @@ def drug_level(patmap):
     j = (m.merge(fwd[["patent_no", "n_forward_citations", "family_size",
                       "family_n_countries"]].drop_duplicates("patent_no"),
                  on="patent_no", how="left")
-          .merge(core[["patent_no", "n_cpc_a61k", "n_cpc_a61p"]]
+          .merge(core[["patent_no", "n_cpc_a61k", "n_cpc_a61p", "n_cpc_codes",
+                       "n_assignees", "n_inventors", "n_backward_citations",
+                       "years_priority_to_grant"]]
                  .drop_duplicates("patent_no"), on="patent_no", how="left"))
+    # Columns 01_patent_core.sql already returns. Each is a recognised patent
+    # indicator and none costs anything further to use.
+    #
+    #   n_cpc_codes            how many technology classes the patent is filed
+    #                          under. The standard stand-in for claim breadth,
+    #                          which cannot be measured directly here.
+    #   n_assignees            more than one owner means the patent is shared,
+    #                          which usually signals a partnership or licence.
+    #   n_inventors            the size of the team credited with the work.
+    #   n_backward_citations   how much earlier work the patent builds on.
+    #   years_priority_to_grant how long the patent office took. A long
+    #                          prosecution usually means the claims were fought
+    #                          over, which tends to go with a valuable patent.
     return (j.groupby("appl_no", as_index=False)
              .agg(citations_per_patent=("n_forward_citations", "mean"),
                   family_size=("family_size", "mean"),
                   family_n_countries=("family_n_countries", "mean"),
+                  cpc_codes_per_patent=("n_cpc_codes", "mean"),
+                  assignees_per_patent=("n_assignees", "mean"),
+                  inventors_per_patent=("n_inventors", "mean"),
+                  backward_citations_per_patent=("n_backward_citations", "mean"),
+                  years_priority_to_grant=("years_priority_to_grant", "mean"),
                   drug_patents_matched=("patent_no", "nunique")))
 
+
+def purple_book(out_dir):
+    """Biosimilar competition, per FDA application.
+
+    A biosimilar is the biologic equivalent of a generic. Unlike conventional
+    drugs, biologics carry no duty to list their patents, so for a biologic the
+    number of competitors circling is a more direct measure of commercial
+    pressure than any patent count. The Purple Book records which biosimilars
+    reference which original product, which is what makes the count possible.
+    """
+    path = os.path.join(out_dir, "purplebook_biologics.parquet")
+    if not os.path.exists(path):
+        return None
+    pb = pd.read_parquet(path)
+    pb["appl_no"] = pb.bla_number.astype(str).str.strip()
+
+    # how many biosimilars name each originator as their reference product
+    ref = (pb.loc[pb.is_biosimilar == 1, "ref_product_proper_name"]
+             .dropna().astype(str).str.upper().str.strip())
+    competitors = ref.value_counts()
+    pb["proper_upper"] = pb.proper_name.astype(str).str.upper().str.strip()
+    pb["n_competing_biosimilars"] = pb.proper_upper.map(competitors).fillna(0)
+
+    return (pb.groupby("appl_no", as_index=False)
+              .agg(pb_is_biosimilar=("is_biosimilar", "max"),
+                   pb_is_interchangeable=("is_interchangeable", "max"),
+                   pb_is_originator=("is_originator", "max"),
+                   pb_n_competing_biosimilars=("n_competing_biosimilars", "max"),
+                   pb_n_products=("appl_no", "size")))
 
 def main():
     for f in (PORTFOLIO, FWD, CORE):
@@ -219,6 +268,16 @@ def main():
                  "is_resolved"]].copy()
     feat = feat.merge(asof, on=["corporate_group", "start_year"], how="left")
 
+    pb = purple_book(OUT)
+    if pb is not None:
+        res_pb = pd.read_parquet(os.path.join(OUT, "trial_drug_resolution.parquet"),
+                                 columns=["nct_id", "appl_no"])
+        res_pb["appl_no"] = res_pb.appl_no.astype(str).str.strip()
+        feat = feat.merge(
+            res_pb.merge(pb, on="appl_no", how="inner").drop(columns=["appl_no"])
+                  .groupby("nct_id", as_index=False).max(numeric_only=True),
+            on="nct_id", how="left")
+
     drug = drug_level(PATMAP)
     if drug is not None:
         res = pd.read_parquet(os.path.join(OUT, "trial_drug_resolution.parquet"),
@@ -231,6 +290,10 @@ def main():
     keep = ["nct_id", "corporate_group", "assignee_portfolio_size",
             "assignee_pharma_patents", "assignee_pharma_share",
             "citations_per_patent", "family_size", "family_n_countries",
+            "cpc_codes_per_patent", "assignees_per_patent", "inventors_per_patent",
+            "backward_citations_per_patent", "years_priority_to_grant",
+            "pb_is_biosimilar", "pb_is_interchangeable", "pb_is_originator",
+            "pb_n_competing_biosimilars", "pb_n_products",
             "drug_patents_matched"]
     out = feat[[c for c in keep if c in feat.columns]]
     path = os.path.join(OUT, "sponsor_ip_features.parquet")
