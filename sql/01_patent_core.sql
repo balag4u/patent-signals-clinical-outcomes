@@ -1,14 +1,38 @@
 -- =====================================================================
 -- QM 640 Capstone | Patent core attributes for Orange Book patents
 -- Source: patents-public-data.patents.publications (Google Patents Public Data)
--- Cost control: SELECTs only small scalar/array columns. Do NOT add
---   claims_localized or description_localized here (see 03_claims_expensive.sql).
--- Replace @patent_list with the Orange Book patent numbers.
+--
+-- INPUT: capstone.ob_patents, uploaded from
+--        data/analysis_ready/bigquery_patent_numbers_clean.csv (6,475 rows,
+--        column patent_prefix, e.g. US-7625884).
+--
+-- COST: this is the most expensive of the three queries, because
+-- ARRAY_LENGTH(p.citation) reads the backward-citation array and
+-- ARRAY_LENGTH(p.cpc) reads the classification array, both of which are large.
+-- Columns read: publication_number, application_number, country_code,
+-- kind_code, family_id, publication_date, filing_date, priority_date,
+-- grant_date, cpc, citation, assignee_harmonized, inventor_harmonized.
+-- CHECK THE ESTIMATE BEFORE RUNNING. If it exceeds about 150 GB, drop
+-- n_backward_citations (the citation array) first: it is the single largest
+-- column here and is not used by any feature in the interim analysis.
+--
+-- Never add claims_localized or description_localized. Either one would
+-- consume the whole monthly sandbox allowance in a single run.
+--
+-- Replace YOUR_PROJECT with your project id.
 -- =====================================================================
 WITH ob AS (
   -- Orange Book patent numbers, US utility patents
-  SELECT DISTINCT CAST(num AS STRING) AS patent_prefix
-  FROM UNNEST(@patent_list) AS num
+  -- LIKE 'US-%' is a guard, not a filter. bigquery_patent_numbers_clean.csv is a
+  -- single STRING column, so BigQuery's auto-detect cannot tell its header row
+  -- from data and may load the literal text "patent_prefix" as a row. Upload it
+  -- with Auto detect OFF, schema "patent_prefix:STRING" and "Header rows to
+  -- skip" set to 1. This guard means a stray header row cannot join to anything
+  -- even if that is missed. Expect 6,475 rows.
+  SELECT DISTINCT UPPER(TRIM(patent_prefix)) AS patent_prefix
+  FROM `YOUR_PROJECT.capstone.ob_patents`
+  WHERE patent_prefix IS NOT NULL
+    AND UPPER(TRIM(patent_prefix)) LIKE 'US-%'
 ),
 pub AS (
   SELECT
