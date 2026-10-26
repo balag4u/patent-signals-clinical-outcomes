@@ -519,7 +519,29 @@
       "p_term_not_computable": 0.2415,
       "z": -13.519,
       "p_value": 1.209295691342021e-41
+    },
+    "precision": {
+      "what_this_is": "the smallest true difference this sample size could have detected with 80% power at the 5% level",
+      "minimum_detectable_difference": 0.0189,
+      "ci_half_width": 0.0132,
+      "required_per_group_from_sample_size_chapter": 583,
+      "actual_per_group": 6479
     }
+  },
+  "rq1_drug_level": {
+    "what_this_is": "the RQ1 test repeated on the Orange Book drug-level score, which can only be computed for drugs that reached approval",
+    "n_computable": 14034,
+    "p_term_strong": 0.1883,
+    "p_term_weak": 0.2247,
+    "n_strong": 6175,
+    "n_weak": 7859,
+    "risk_difference": -0.0364,
+    "rd_ci95": [
+      -0.0499,
+      -0.0228
+    ],
+    "z": -5.2629,
+    "p_value": 1.418254474987247e-07
   },
   "rq2_increments": [
     {

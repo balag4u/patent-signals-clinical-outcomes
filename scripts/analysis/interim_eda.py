@@ -235,7 +235,7 @@ ob_cols = [
 ]
 frame = frame.merge(ob[ob_cols].drop_duplicates("appl_no"), on="appl_no", how="left")
 frame = frame.merge(
-    ip[["nct_id", "ip_index", "ip_index_sponsor", "ip_strong", "ip_tertile_extreme",
+    ip[["nct_id", "ip_index", "ip_index_sponsor", "ip_index_drug", "ip_strong", "ip_tertile_extreme",
         "ob_term_remaining_yrs", "assignee_portfolio_size", "assignee_pharma_share",
         "citations_per_patent", "family_size", "family_n_countries"]],
     on="nct_id",
@@ -541,13 +541,63 @@ results["rq1"] = {
         "p_value": float(p_sel),
     },
 }
+# ---------------------------------------------------------------------------
+# The same comparison, run on the drug-level patent score instead of the
+# sponsor-level one. The two differ in who can be measured at all: the Orange
+# Book lists patents only for drugs that reached an approved FDA application,
+# so the drug-level score exists only for drugs that already succeeded. The
+# sponsor-level score needs no approval. Running the identical test on both is
+# how the study checks whether an apparent patent effect is really an effect of
+# having survived to approval.
+_d = frame[frame.ip_index_drug.notna()].copy()
+if len(_d) > 100:
+    _thr = _d.ip_index_drug.median()
+    _d["strong"] = (_d.ip_index_drug > _thr).astype(int)
+    _ps = float(_d.loc[_d.strong == 1, "is_terminated"].mean())
+    _pw = float(_d.loc[_d.strong == 0, "is_terminated"].mean())
+    _ns = int((_d.strong == 1).sum()); _nw = int((_d.strong == 0).sum())
+    _rd = _ps - _pw
+    _pp = (_ps * _ns + _pw * _nw) / (_ns + _nw)
+    _se = math.sqrt(_pp * (1 - _pp) * (1 / _ns + 1 / _nw))
+    _z = _rd / _se if _se else float("nan")
+    from scipy.stats import norm as _norm
+    results["rq1_drug_level"] = {
+        "what_this_is": ("the RQ1 test repeated on the Orange Book drug-level score, "
+                         "which can only be computed for drugs that reached approval"),
+        "n_computable": len(_d),
+        "p_term_strong": round(_ps, 4),
+        "p_term_weak": round(_pw, 4),
+        "n_strong": _ns, "n_weak": _nw,
+        "risk_difference": round(_rd, 4),
+        "rd_ci95": [round(_rd - 1.96 * _se, 4), round(_rd + 1.96 * _se, 4)],
+        "z": round(float(_z), 4),
+        "p_value": float(2 * _norm.sf(abs(_z))),
+    }
+    print(f"  [drug-level, approval-selected] RD = {_rd:+.4f} on {len(_d):,} trials, "
+          f"p = {2 * _norm.sf(abs(_z)):.3e}")
+
+# How small an effect this sample could have detected, so that a null result can
+# be reported as a precise finding rather than an absence of evidence.
+_pp2 = (p_strong * nobs[0] + p_weak * nobs[1]) / (nobs[0] + nobs[1])
+_se2 = math.sqrt(_pp2 * (1 - _pp2) * (1 / nobs[0] + 1 / nobs[1]))
+results["rq1"]["precision"] = {
+    "what_this_is": ("the smallest true difference this sample size could have "
+                     "detected with 80% power at the 5% level"),
+    "minimum_detectable_difference": round((1.959964 + 0.8416212) * _se2, 4),
+    "ci_half_width": round(1.959964 * _se2, 4),
+    "required_per_group_from_sample_size_chapter": 583,
+    "actual_per_group": int(min(nobs)),
+}
+print(f"  smallest detectable difference {(1.959964 + 0.8416212) * _se2 * 100:.2f} pp "
+      f"with {min(nobs):,} per group")
+
 print(f"  strong {p_strong:.4f} (n={nobs[0]:,})  weak {p_weak:.4f} (n={nobs[1]:,})")
 print(f"  RD = {rd:+.4f} [{rd - 1.96 * se_rd:+.4f}, {rd + 1.96 * se_rd:+.4f}]  z = {z:.3f}  p = {p:.3e}")
 print(f"  Cramer's V = {cram:.4f}")
 
 # Figure 5 - RQ1, with the uncomputable group shown rather than hidden
 fig, ax = plt.subplots(figsize=(6.4, 3.0))
-labels = ["Strong IP\n(above median)", "Weak IP\n(below median)", "IP index not\ncomputable"]
+labels = ["Strong patents\n(above median)", "Weak patents\n(below median)", "Sponsor not\nmeasured"]
 vals = [p_strong, p_weak, float(frame.loc[~obs, "is_terminated"].mean())]
 ns = [nobs[0], nobs[1], int((~obs).sum())]
 cols = [BLUE, BLUE, AQUA]
@@ -560,7 +610,7 @@ for i, (v, n) in enumerate(zip(vals, ns)):
 ax.set_xticks(np.arange(3), labels)
 ax.set_ylim(0, max(vals) * 1.42)
 ax.set_ylabel("Termination rate")
-ax.set_title("RQ1: termination rate by drug-level IP strength, with the\nuncomputable group reported alongside")
+ax.set_title("RQ1: termination rate by sponsor patent strength, with the\nunmeasured group reported alongside")
 save(tidy(ax).figure, "fig05_rq1_ip_strength.png")
 
 # ----------------------------------------------------------------------------
