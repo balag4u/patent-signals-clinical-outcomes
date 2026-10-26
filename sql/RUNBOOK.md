@@ -1,149 +1,183 @@
-# BigQuery runbook
+# How to run the patent queries
 
-Concrete steps. Roughly 45 minutes end to end, most of it waiting.
+Start to finish, about 45 minutes, most of it waiting.
 
 ## What you are querying
 
-**`patents-public-data`** is a Google-hosted BigQuery public dataset of worldwide patents. You do
-not download it. You run SQL against it in place and pull back a small summary. The table
-`patents.publications` is over 100 GB; your results will be a few megabytes.
+**`patents-public-data`** is a Google-hosted copy of worldwide patent records,
+available to anyone on BigQuery. You do not download it. You run queries
+against it where it sits and bring back a small summary. The main table is over
+100 GB; what comes back here is a few megabytes.
 
-It is **not** your data and not on your drive. It is a public dataset anyone can query.
+It is not your data and it is not on your drive. It is a public dataset anyone
+can query.
 
-## Why you need it
+## Why the project needs it
 
-The patent variables are the study's central independent variable, and they do not exist yet.
-Right now the model scores AUC 0.6636 against a 0.6568 baseline, and the IP block contributes
-nothing, because it is empty.
+The patent measures are the study's main independent variable, meaning the
+thing being tested as a predictor. They do not exist anywhere else. Without
+them the model is design and sponsor history only.
 
-## Setup (once, ~20 min, no credit card)
+## Setting up
 
-1. `console.cloud.google.com` → sign in
-2. Create a project, e.g. `qm640-capstone`
-3. Left menu → **BigQuery**
-4. You are in the **sandbox**: 1 TiB of query processing free per month, no billing account
+Two routes. **The command line is the better one** if you expect to run the
+queries more than once, which you probably will.
 
-## Step 1: upload your two input lists as tables
+### Command line (recommended)
 
-BigQuery needs your patent numbers and assignee names as tables to join against.
+```bash
+# install, no admin password needed
+curl -o gcloud.tar.gz https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-darwin-x86_64.tar.gz
+tar -xzf gcloud.tar.gz -C ~
+export PATH=$HOME/google-cloud-sdk/bin:$PATH
 
-In BigQuery: **+ ADD → Local file**, then for each:
-
-| Upload this file | Dataset | Table name | Schema |
-|---|---|---|---|
-| `data/analysis_ready/bigquery_patent_numbers_clean.csv` | `capstone` | `ob_patents` | auto-detect |
-| `data/analysis_ready/bigquery_assignee_names.csv` | `capstone` | `assignees` | auto-detect |
-
-(Create the dataset `capstone` first: click your project → **CREATE DATASET**, location US.)
-
-## Step 2: the probe query, before anything else
-
-Run this first. It costs almost nothing and tells you whether the assignee name strings are right.
-**If Novartis comes back with 12 patents instead of tens of thousands, the name is wrong, not the
-company.**
-
-```sql
-SELECT a.name AS assignee, COUNT(*) AS n_patents
-FROM `patents-public-data.patents.publications` p,
-     UNNEST(p.assignee_harmonized) a
-WHERE p.country_code = 'US'
-  AND UPPER(TRIM(a.name)) IN (
-      'NOVARTIS AG','PFIZER INC','ELI LILLY AND CO',
-      'F HOFFMANN LA ROCHE AG','MERCK SHARP & DOHME CORP')
-GROUP BY assignee
-ORDER BY n_patents DESC;
+gcloud auth login                       # opens a browser once
+gcloud config set project YOUR_PROJECT
 ```
 
-Expect thousands to tens of thousands per major firm. A near-zero count means that firm's name
-needs correcting in `bigquery_assignee_names.csv` before the full run.
+Use `google-cloud-cli-darwin-arm.tar.gz` on an Apple Silicon Mac. Check with
+`uname -m`: `x86_64` means Intel, `arm64` means Apple Silicon.
 
-### What this probe actually returned, 2026-10-23
+### Web console
 
+Go to `console.cloud.google.com/bigquery`, sign in, accept the terms, and
+create a project. You are placed in the **sandbox**, which gives 1 TiB of query
+processing free per month with no credit card. The limits are worth knowing:
+
+- 10 GiB of storage, **for the lifetime of the project**, not per month, and
+  not returned when you delete data
+- Tables expire after 60 days
+- No `INSERT`, `UPDATE` or `DELETE`. Everything here is `SELECT` and file
+  uploads, so this does not get in the way
+
+## Step 1: upload the two input lists
+
+BigQuery needs your patent numbers and company names as tables to match
+against.
+
+```bash
+bq load --replace --source_format=CSV --skip_leading_rows=1 \
+  --schema="patent_prefix:STRING" \
+  YOUR_PROJECT:capstone.ob_patents \
+  data/analysis_ready/bigquery_patent_numbers_clean.csv
+
+bq load --replace --source_format=CSV --skip_leading_rows=1 \
+  --schema="corporate_group:STRING,harmonized_name:STRING,n_patents:INTEGER,parent_from_year:INTEGER,source:STRING" \
+  YOUR_PROJECT:capstone.assignees_verified \
+  data/analysis_ready/bigquery_assignee_verified.csv
 ```
-NOVARTIS AG         8724
-ELI LILLY AND CO       3
-PFIZER INC             2
+
+**Specify the schema rather than letting BigQuery guess.** The patent file is a
+single column of text, and automatic detection cannot tell a header row from
+data when every value looks the same. It will load the word `patent_prefix` as
+if it were a patent number.
+
+Check the counts afterwards. `ob_patents` should hold 6,476 rows and
+`assignees_verified` 712.
+
+## Step 2: find out what the patent database actually calls each company
+
+**Run this before anything else.** It is the step that makes the rest work.
+
+The owner field in BigQuery, `assignee_harmonized`, sounds tidy and is not. It
+abbreviates, drops company suffixes and sometimes reverses word order:
+
+| Written by hand | What BigQuery holds |
+|---|---|
+| `ELI LILLY AND CO` | `LILLY CO ELI` |
+| `PFIZER INC` | `PFIZER` |
+| `ABBOTT LABORATORIES` | `ABBOTT LAB` |
+| `F HOFFMANN LA ROCHE AG` | `HOFFMANN LA ROCHE` |
+
+So searching for exact company names mostly fails, and it fails **silently**:
+you get a small number back rather than an error. When this was first tried,
+Novartis returned 8,724 patents, Eli Lilly returned 3 and Pfizer returned 2.
+
+`00_assignee_name_discovery.sql` searches for distinctive **word fragments**
+instead, which survive abbreviation, and returns every real owner name
+containing one. That list is then matched offline, where retrying is free.
+
+```bash
+sed 's/YOUR_PROJECT/your-project-id/g' sql/00_assignee_name_discovery.sql \
+  | bq query --nouse_legacy_sql --format=csv --max_rows=1000000 --quiet \
+  > data/patents/assignee_name_dictionary.csv
 ```
 
-`F HOFFMANN LA ROCHE AG` and `MERCK SHARP & DOHME CORP` returned no row at all. So four of
-the five names are wrong, and the cause is systematic rather than per-firm.
+Then build the checked company list:
 
-`assignee_harmonized` is not harmonized to legal names. Running
-`00_assignee_name_discovery.sql` returned 1,629 real name forms, and they show the pattern:
+```bash
+python scripts/prep/prep_12_assignee_crosswalk.py
+```
 
-| curated by hand | what BigQuery actually holds | transformation |
-|---|---|---|
-| `F HOFFMANN LA ROCHE AG` | `HOFFMANN LA ROCHE` | prefix and suffix dropped |
-| `ELI LILLY AND CO` | `LILLY CO ELI` | word order inverted |
-| `PFIZER INC` | `PFIZER` | legal suffix dropped |
-| `ABBOTT LABORATORIES` | `ABBOTT LAB` | abbreviated |
-| `MERCK SHARP & DOHME CORP` | `MERCK SHARP & DOHME` | legal suffix dropped |
+This stops with an error if any company on your curated list could not possibly
+be found by the search. That is deliberate: a company that returns no patents
+because the search never looked for it would otherwise read as a company with
+no inventions.
 
-`NOVARTIS AG` matched because that string happens to survive all of this unchanged, not
-because Novartis was recorded more carefully than the rest.
+## Step 3: check the cost estimate, every time
 
-**Exact matching against guessed strings cannot be fixed name by name.** Run
-`00_assignee_name_discovery.sql` instead. It matches on distinctive company tokens, which
-punctuation does not affect, and returns the real harmonized name forms with their patent
-counts. Export that to `data/patents/assignee_name_dictionary.csv` and reconcile the 149
-curated names against it locally, where iterating is free. It processes 6.92 GB, about
-0.68% of the monthly allowance: the regex predicate is free, and the increase over this
-probe's 4.38 GB is the one extra column read by `COUNT(DISTINCT publication_number)`.
+```bash
+bq query --dry_run --nouse_legacy_sql < sql/03_assignee_portfolio.sql
+```
 
-Only once `bigquery_assignee_names.csv` carries verified harmonized names is
-`03_assignee_portfolio.sql` worth running. Run it before that and the primary IP variable is
-silently undercounted for most sponsors, which is worse than having no variable at all.
+A dry run reports what the query *would* read without running it, and costs
+nothing. In the web console the same figure appears at the top right before you
+press Run.
 
-## Step 3: check the cost estimate every time
-
-Before clicking **RUN**, the editor shows *"This query will process X"* at the top right.
-
-- under ~50 GB: fine
-- over that: stop and narrow the query
-
-**Never `SELECT claims_localized` or `description_localized`.** BigQuery bills on bytes scanned
-per column, and those two columns will consume the entire monthly allowance in a single query.
+**BigQuery charges by how much data a query reads, counted per column**, not by
+how many rows come back. Reading a column you do not need costs real money.
+Stop and reconsider anything above about 100 GB, and never select
+`claims_localized` or `description_localized`: either would consume a month's
+allowance in one query. See `README_COST.md`.
 
 ## Step 4: run the three queries
 
-Replace `@patent_list` / `@assignee_list` with a subquery against the tables you uploaded:
-
-```sql
--- instead of:  FROM UNNEST(@patent_list) AS num
--- use:         FROM `YOUR_PROJECT.capstone.ob_patents`
-```
-
-| File | Returns | Feeds |
+| File | Returns | Measured cost |
 |---|---|---|
-| `01_patent_core.sql` | assignee, CPC class, filing/priority/grant dates, backward citations, family id, for your 6,476 Orange Book patents | drug-level IP block (validation subsample) |
-| `02_forward_citations_and_family.sql` | forward citations (QUALITY), INPADOC family size and country count (BREADTH) | two of the five index dimensions |
-| `03_assignee_portfolio.sql` | per sponsor per year: patents granted, pharma-CPC share, cumulative portfolio | **the primary IP variable**: SCALE and FOCUS, measured as of each trial's start date |
+| `01_patent_core.sql` | Owner, patent class, dates, citations and family, for the Orange Book patents | 74.0 GB |
+| `02_forward_citations_and_family.sql` | How often each patent is later cited, and how many countries it was filed in | 28.5 GB |
+| `03_assignee_portfolio.sql` | Each company's portfolio, year by year | 22.1 GB |
 
-Query 3 matters most. It is the only IP measure that exists for **every** trial, including drugs
-that were never approved, which is what keeps the study free of survivorship bias.
-
-## Step 5: export the results
-
-For each query: **SAVE RESULTS → CSV (local file)** if under ~16k rows, otherwise **→ Google
-Drive**, then download.
-
-Put all three in `data/patents/` in the repo:
-
-```
-data/patents/patent_core.csv
-data/patents/forward_citations_family.csv
-data/patents/assignee_portfolio.csv
+```bash
+for q in 01_patent_core 02_forward_citations_and_family 03_assignee_portfolio; do
+  sed 's/YOUR_PROJECT/your-project-id/g' "sql/$q.sql" \
+    | bq query --nouse_legacy_sql --format=csv --max_rows=1000000 --quiet \
+    > "data/patents/$q.csv"
+done
 ```
 
-## Step 6: tell me, and I will do the rest
+Rename the outputs to `patent_core.csv`, `forward_citations_family.csv` and
+`assignee_portfolio.csv`.
 
-Once those three CSVs are in `data/patents/`, I will write `prep_12_patents.py` to join them
-onto the trials table and rebuild the IP index. I have deliberately not written it yet, because
-the join has to match the real column names and types that come back, not what I guess they
-will be.
+**Query 3 matters most.** It is the only patent measure that exists for every
+trial, including drugs that were never approved. That is what keeps the study
+from drawing conclusions by looking only at successes.
 
-After the join the index becomes spec-complete (`ip_index_spec_complete = 1`), RQ1 gets a real
-strong/weak split instead of the current TERM-only placeholder, and RQ2 gets its IP block.
+## Step 5: build the features and re-run the analysis
 
-**The whole experiment is whether that beats AUC 0.6568.** If it does not, that is a finding worth
-reporting, not a failure.
+```bash
+python scripts/prep/prep_13_patents.py    # patent results to per-trial measures
+python scripts/prep/prep_11_ip_index.py data/analysis_ready
+python scripts/analysis/interim_eda.py    # rewrites docs/interim_results.json
+```
+
+`prep_13` prints how much of the study it could measure. Expect about 64% of
+industry-sponsored trials. University and government sponsors mostly have no
+measurable portfolio, which for them is closer to correct than wrong.
+
+## If something comes back empty
+
+Two failures have happened in this project, both silent:
+
+**A filter that matches nothing.** Query 02 originally filtered on
+`country = 'US'` in the research table. That table stores country *names*, so
+the value is "United States" and the filter matched zero rows. Every citation
+count came back empty while the query reported success.
+`02a_diagnose_research_country.sql` shows what that field actually contains and
+costs almost nothing to run.
+
+**A search term that matches too much.** Terms built from ordinary words behave
+badly. `MEDICA` matched 1,884 owners including Toshiba Medical and Olympus
+Medical; `INNO` matched 3M Innovative Properties and LG Innotek. The rule is to
+count every search term against the returned dictionary before trusting it. A
+term matching hundreds of owners is wrong by definition.

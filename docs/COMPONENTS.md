@@ -1,199 +1,319 @@
-# Components
+# How each part works, and why it is built that way
 
-Eight subsystems make up the project. Each section explains what that part *is* and why
-it is built that way. Read the README first for how to run things; read this for the
-reasoning behind each piece.
+The project has nine parts. This document explains the reasoning behind each
+one. Read `README.md` first for what the project is and how to run it, and
+`docs/PROJECT_GUIDE.md` for the full walkthrough. Read this when you want to
+know *why* something is done the way it is.
 
-| # | Subsystem | Covers |
+| # | Part | Question it answers |
 |---|---|---|
-| 1 | [Research pipeline](#1-research-pipeline) | Scope, frame and folder map |
-| 2 | [Project guide](#2-project-guide) | Data sources and how they join |
-| 3 | [Sponsor-to-assignee mapping](#3-sponsor-to-assignee-mapping) | Corporate rollup for patent matching |
-| 4 | [IP strength index (RQ1)](#4-ip-strength-index-rq1) | The strong/weak split |
-| 5 | [IP dimensions across RQ1-RQ4](#5-ip-dimensions-across-rq1-rq4) | Five dimensions, used separately in RQ2-RQ4 |
-| 6 | [Documentation](#6-documentation) | Reference documentation |
-| 7 | [Pharmacovigilance](#7-pharmacovigilance) | FAERS disproportionality signals |
-| 8 | [Patent retrieval](#8-patent-retrieval) | BigQuery queries and inputs |
+| 1 | [The study frame](#1-the-study-frame) | Which trials count, and why those |
+| 2 | [Matching drugs to FDA records](#2-matching-drugs-to-fda-records) | How free text becomes a usable key |
+| 3 | [Matching sponsors to patent owners](#3-matching-sponsors-to-patent-owners) | How a trial sponsor becomes a patent portfolio |
+| 4 | [Fetching the patent data](#4-fetching-the-patent-data) | Why the data is queried, not downloaded |
+| 5 | [Dating the portfolio](#5-dating-the-portfolio) | Why the year matters more than the total |
+| 6 | [The patent strength score](#6-the-patent-strength-score) | How five measures become one |
+| 7 | [Safety signals](#7-safety-signals) | Why counts of side effects are misleading |
+| 8 | [The models](#8-the-models) | Why these models and this validation |
+| 9 | [Documentation](#9-documentation) | What is written down, and what generates itself |
 
 ---
 
-## 1. Research pipeline
+## 1. The study frame
 
-*Research pipeline: do patent signals predict clinical trial termination?*
+**What it is.** One row per interventional Phase II or Phase III drug trial
+starting between 2008 and 2019, where the outcome is known. 39,437 trials, of
+which 22.17% were terminated.
 
-Walsh College DBA capstone (QM 640). Tests whether a pharmaceutical sponsor's
-intellectual property position predicts whether their clinical trial terminates
-early, alongside trial design, regulatory pathway and sponsor characteristics.
+**Why the window closes at 2019.** Trials that are stopped reach their ending
+quickly; trials that finish take years. Among trials that started recently, the
+ones with a known outcome are therefore mostly the stopped ones. The share with
+a known outcome falls from 92.6% for 2008 starts to 34.8% for 2023 starts, and
+including those years makes the termination rate appear to climb from 20.8% to
+33.5%. That climb is an artefact of how long we have been watching, not a real
+trend. Closing at 2019 leaves at least six years of follow-up for every trial.
 
-Unit of analysis : one interventional Phase II/III drug trial
-Window           : trials starting 2008-2019, with a resolved outcome
-Outcome          : terminated, withdrawn or suspended, versus completed
-Analytic frame   : 39,437 trials; termination rate 22.17%
-Required sample  : 4,422 (the maximum across RQ1-RQ4; RQ4 binds)
+For the same reason, **calendar year is kept out of the predictors**. A model
+given the start year could learn the artefact instead of the signal.
 
-Contents:
+**Why the enrolment field is excluded.** The registry records how many patients
+a trial *actually* enrolled, and a stopped trial has few precisely because it
+stopped. The number contains the answer. On its own it separates stopped from
+finished trials with an AUC of 0.74 where the registry holds the real figure,
+but only 0.48 where it still holds the original plan, and 0.48 is nothing.
+
+A predictor that secretly contains the outcome is called **leakage**. It makes
+a model look accurate in testing and fail in use, because at the moment of
+prediction that information does not exist.
+
+`scripts/prep/prep_01_ctgov.py`
+
+---
+
+## 2. Matching drugs to FDA records
+
+**The problem.** The registry stores drug names as free text typed by trial
+staff: `DAPAGLIFLOZIN 10 MG`, `TAK-438`, `EXPERIMENTAL: PLACEBO`. FDA files use
+standard ingredient names. **No published lookup table connects the two**,
+which is why this is the hardest join in the project.
+
+**The approach.** Five stages, strictest first: exact match, then a public
+synonym list that decodes company code names, then looking for a known
+ingredient inside a longer phrase, then reconciling salt forms, then guarded
+typo correction. 83.7% match to an ingredient and 49.5% to a specific FDA
+application.
+
+**Why two rules were removed.** It is easy to raise the match rate and easy to
+fool yourself doing it:
+
+- A prefix rule turned `INSULIN` into "INSULIN DEGLUDEC AND INSULIN ASPART" and
+  `N-ACETYLCYSTEINE` into "N-ACETYLCYSTEINE ETHYL ESTER", a **different
+  compound**.
+- Fuzzy matching turned `STATIN` into `STATINE`, a drug class into an amino
+  acid.
+
+**Why accuracy is checked by hand.** How many matched is counted
+automatically. How many matched *correctly* cannot be, because there is no
+answer key. A sample of 200 links was judged by a person, giving precision of
+0.979. Risky methods were deliberately over-sampled so the sample says
+something about them, then weighted back to their true share.
+
+`scripts/prep/prep_08_entity_resolution.py`, `data/validation/`
+
+---
+
+## 3. Matching sponsors to patent owners
+
+**The problem.** Trial registries record a sponsor. Patents record a legal
+owner, called an **assignee**. The patent database abbreviates and sometimes
+reverses what it stores, so `ELI LILLY AND CO` is held as `LILLY CO ELI` and
+`ABBOTT LABORATORIES` as `ABBOTT LAB`. Searching for exact company names fails:
+when tried, Novartis returned 8,724 patents while Eli Lilly returned 3.
+
+**The approach.** Search for distinctive **word fragments**, which survive
+abbreviation, then check every match offline where retrying costs nothing.
+
+**Three things the matching has to get right:**
+
+- **Group companies with their parents.** Genentech's patents belong to Roche
+  and Janssen's to Johnson & Johnson. Without this a sponsor's portfolio is
+  understated.
+- **Date the acquisitions.** Wyeth's patents became Pfizer's in 2009. Since
+  patents are measured as they stood on each trial's start date, a parent
+  counts only from the year it bought the subsidiary.
+- **Keep same-named firms apart.** Merck & Co of the United States and Merck
+  KGaA of Germany separated in 1917 and are unrelated. Schering AG of Berlin
+  went to Bayer while Schering Corporation of New Jersey went to Merck.
+
+**Three traps found in the real data:**
+
+- **People share surnames with companies.** Over a hundred patent owners are
+  individuals named Takeda; others are named Roche, Lilly or Bayer.
+- **Ordinary words are not company names.** Searching for ORION matched Orion
+  Energy Systems and Orion Engineered Carbons. TRIS would have matched
+  thousands of chemistry patents, because tris is a common laboratory buffer.
+- **Large groups patent far outside medicine.** Mitsubishi Electric alone holds
+  64,014 patents.
+
+**The safeguard.** Every search term is counted against the returned results
+before it is trusted. A term matching hundreds of owners is wrong by
+definition. The script also stops with an error if any company on the list
+could not possibly be found by the search, so a company never silently reads as
+having no patents.
+
+Result: 712 checked owner names across 184 companies, covering 64.4% of
+industry-sponsored trials.
+
+`scripts/prep/prep_10_sponsor_assignee.py`,
+`scripts/prep/prep_12_assignee_crosswalk.py`
+
+---
+
+## 4. Fetching the patent data
+
+**Why it is queried rather than downloaded.** The Google Patents public dataset
+is around 100 gigabytes. The summary this project needs is a few megabytes, so
+the work is done where the data already sits, on BigQuery, and only the summary
+comes back.
+
+**Why not PatentsView**, the obvious alternative with properly disambiguated
+owner identifiers: its public download route closed during this study, and the
+replacement requires a registered access key.
+
+**The cost rule that matters.** BigQuery charges by **how much data a query
+reads, counted per column**. Reading a column you do not need costs real money.
+The full-text columns holding patent claims and descriptions must never be
+selected: a single query touching them would consume an entire month's free
+allowance.
+
+**The three queries:**
+
+| Query | Returns |
+|---|---|
+| `01_patent_core.sql` | Owner, patent class, dates, citations and family, for the Orange Book patents |
+| `02_forward_citations_and_family.sql` | How often each patent is later cited, and how many countries it was filed in |
+| `03_assignee_portfolio.sql` | Each company's portfolio, year by year |
+
+The third matters most. It is the only patent measure that exists for **every**
+trial, including drugs that were never approved, which is what keeps the study
+from looking only at successes.
+
+`sql/`, with `RUNBOOK.md` for the procedure and `README_COST.md` for charging
+
+---
+
+## 5. Dating the portfolio
+
+**The principle.** A portfolio counted at today's size would say what the
+company *became*, not what it was when the trial opened. That is leakage again,
+and it is why the query returns a running total per company per year rather
+than one total.
+
+**How it works.** For each trial, the portfolio is read off as it stood in that
+trial's start year. A company granted no patents in 2013 still owns everything
+it owned in 2012, so the last known total is carried forward.
+
+**Acquisitions are dated.** A subsidiary counts towards its parent only from
+the year of the acquisition, so a trial starting in 2008 sees Pfizer without
+Wyeth.
+
+**Two measures, not one.** The total number of patents, and how many are
+classified in the medicine classes. They are kept separate because they
+disagree in a way that matters: Bayer holds 25,640 US patents but only 3,859
+pharmaceutical ones, a 15% share, against 59% for Roche. Counting everything
+would rank Bayer first on the strength of crop science and plastics.
+
+`scripts/prep/prep_13_patents.py`
+
+---
+
+## 6. The patent strength score
+
+**Why a single score exists at all.** RQ1 compares two groups, and a two-group
+test needs two groups. RQ2 to RQ4 keep the measures separate, because
+collapsing them into one number throws away detail that was expensive to
+collect.
+
+**Five dimensions**, with the ones that do not simply track company size
+carrying more weight:
+
 ```
-  data/analysis_ready/  every analysis input as Parquet, 41 MB
-  scripts/prep/         raw source to analysis table, one script per source
-  scripts/analysis/     sample size derivation, precision sampling and scoring
-  scripts/colab/        notebook executing RQ1-RQ4
-  sql/                  BigQuery statements for patent retrieval
-  docs/                 data dictionary and source catalogue
+  Quality  how often later patents cite this one        weight 1.0
+  Breadth  how many countries the invention is filed in  weight 1.0
+  Term     years of protection remaining at trial start  weight 1.0
+  Focus    share of the portfolio in medicine classes    weight 1.0
+  Scale    how many patents the company holds            weight 0.5
 ```
 
-Raw archives (~15 GB) are not stored here; every one is re-downloadable from
-the endpoints recorded in docs/DATA_SOURCES.md, and the prep scripts rebuild
-all derived tables from them.
+**Why scale counts half.** A raw patent count is largely a measure of company
+size. Big companies also run more trials and have more experience, so at full
+weight the score would partly measure company size under another name.
 
-## 2. Project guide
+**Two preparation steps, each with a reason:**
 
-*Project guide: how the ten data sources fit together*
+- **Extreme values are capped** at the 1st and 99th percentile. Patent counts
+  are heavily skewed, and a few giants would otherwise set the scale for
+  everyone.
+- **Measures are standardised within trials that started in the same year.**
+  Citations accumulate over time, so a 2009 patent would otherwise look
+  stronger than a 2018 one purely from having existed longer.
 
-A plain-language walkthrough for anyone opening this repository for the first
-time: what the study asks, which dataset answers which part of it, how they
-join, how the sampling requirement was derived, and what to run.
+**The evergreening ratio is deliberately excluded.** Evergreening means filing
+later, narrower patents to extend protection on an existing drug. A high share
+can mean sophisticated lifecycle management, or it can mean the original patent
+was too weak to rely on. A measure that could point either way would corrupt a
+strength score, so it is kept as a separate predictor instead.
 
-The central join problem is that no published crosswalk links ClinicalTrials.gov
-intervention text to FDA drug records, so the guide sets out the resolution
-strategy and its limits.
+**Missing is not weak.** A trial whose sponsor cannot be measured is
+unmeasured, not weakly protected. Coding it as zero would invent a finding, so
+those trials leave the comparison and the exclusion is reported alongside the
+result.
 
-docs/PROJECT_GUIDE.md
+**Current state: three of the five dimensions have data behind them.** Term,
+focus and scale are built; quality and breadth exist only at drug level. The
+script reports this rather than letting the score look complete.
 
-## 3. Sponsor-to-assignee mapping
+`scripts/prep/prep_11_ip_index.py`
 
-*Sponsor-to-assignee mapping for portfolio measurement*
+---
 
-Patents are the study's principal independent variable, and they attach to
-corporate assignees rather than to the trial sponsor names the registry records.
-This maps one to the other, producing 149 assignee search names across 71
-corporate groups and covering 56.4% of industry trials in the frame.
+## 7. Safety signals
 
-Three properties the mapping has to hold:
+**Why counts would mislead.** FAERS, the FDA Adverse Event Reporting System,
+does not record how many people took each drug. A widely used medicine collects
+more reports simply because more people take it, so a raw count measures
+popularity rather than danger.
 
-- Corporate rollup. Genentech's patents belong to Roche and Janssen's to Johnson & Johnson, so a sponsor's portfolio is understated without it.
+**What is used instead.** Disproportionality: rather than counting reports, ask
+whether a drug and a side effect appear together more often than you would
+expect if they were unrelated. This follows Evans, Waller and Davis (2001), and
+covers 4.08 million drug-event pairs across 46 quarterly releases.
 
-- Acquisition timing. Wyeth's patents became Pfizer's in 2009. Because IP is measured as of each trial's start date, a parent applies only from the year it acquired the subsidiary; 27 subsidiaries carry a parent_from_year.
+**Three steps the result depends on:**
 
-- Merck Sharp & Dohme (US) and Merck KGaA (Germany) are unrelated firms that separated in 1917 and are kept strictly apart.
+- **Remove duplicates.** One report is often resubmitted across many quarters
+  with a rising version number; only the latest is kept.
+- **Remove retractions**, using the deletion list published each quarter.
+- **Count only suspect drugs.** A report lists everything the patient was
+  taking. Medicines merely taken at the same time are not implicated and would
+  water down every signal.
 
-scripts/prep/prep_10_sponsor_assignee.py
+**Why safety attaches through the trial, not the report.** The organisation
+filing a FAERS report is often a generics maker or distributor rather than the
+company that ran the trial, so the link runs trial to ingredient to sponsor.
 
-## 4. IP strength index (RQ1)
+`scripts/prep/prep_04_faers.py`
 
-*Composite intellectual-property strength index for RQ1*
+---
 
-RQ1 compares termination rates between strong-IP and weak-IP sponsors, which
-requires two groups. RQ2-RQ4 keep the components separate, since dichotomising
-discards information the data collection paid for.
+## 8. The models
 
-Index construction:
+**Two models, deliberately.** A penalised logistic regression as the simple
+baseline, and gradient-boosted trees as the flexible learner. If the flexible
+model does no better, that supports reporting the simple one. If it does, the
+gap measures what the simple model misses.
 
-- Components are standardised within trial-start-year cohort, because citation and patent counts accumulate with age; without this, an older patent registers as stronger purely through exposure time.
+**Why the split is by time, not at random.** Models are trained on trials
+starting 2008 to 2015 and tested on 2016 to 2019. A random split would let the
+model learn from trials that started *after* the ones it is tested on, which is
+not available in real use.
 
-- Counts are winsorised at the 1st and 99th percentiles before standardising, as patent counts are heavily right-skewed.
+**Why competing risks for the timing question.** A trial that is stopped can
+never reach completion. Ordinary survival analysis would treat it as simply
+unobserved, which assumes it would have finished given more time. That is
+false, and it pushes the result towards the hypothesis being tested. So
+completion and termination are modelled as two endings that rule each other
+out.
 
-- The evergreening ratio is excluded. A high secondary-patent share may mean sophisticated lifecycle management or a primary patent too weak to rely on, and a component of ambiguous sign would corrupt a strength measure. It is kept as a separate predictor.
+**Why calibration is reported alongside accuracy.** A model can rank trials
+correctly while stating the wrong probabilities. Ranking supports triage;
+absolute risk statements need the numbers to be right as well.
 
-- Trials whose drug carries no listed patent are unobserved, not weak. Coding them zero would manufacture a result; they are excluded and reported.
+**Why standard errors are clustered.** Trials of the same drug share a sponsor
+and a patent position, so they are not independent pieces of evidence. Treating
+them as independent would overstate how much is really known.
 
-Orange Book patent counts are taken at patent level, since one patent is listed
-against 3.15 products on average and row-level counting inflates them.
+`scripts/analysis/interim_eda.py`
 
-scripts/prep/prep_11_ip_index.py, scripts/prep/prep_02_orangebook.py
+---
 
-## 5. IP dimensions across RQ1-RQ4
-
-*IP strength as five dimensions, and how each research question uses them*
-
-Intellectual property strength is not one quantity. The index spans five
-dimensions, with scale-independent measures carrying the weight because a raw
-portfolio count is largely a proxy for company size:
+## 9. Documentation
 
 ```
-  Quality  forward citations per patent          weight 1.0
-  Breadth  INPADOC family size and country count weight 1.0
-  Term     patent life remaining at trial start  weight 1.0
-  Focus    share of portfolio in A61K/A61P       weight 1.0
-  Scale    portfolio count                       weight 0.5
+  README.md                what the project is, what it found, how to run it
+  docs/PROJECT_GUIDE.md    the full walkthrough
+  docs/COMPONENTS.md       this file: why each part is built as it is
+  docs/DATA_DICTIONARY.md  every column of every stored table
+  docs/DATA_SOURCES.md     where each dataset comes from
+  sql/RUNBOOK.md           how to run the patent queries
+  sql/README_COST.md       how BigQuery charges, and how to avoid surprises
 ```
 
-RQ1 uses the composite, because a two-proportion test needs two groups.
-RQ2-RQ4 take the dimensions separately, where the models have the degrees of
-freedom to use each one. RQ3 uses family size as a continuous breadth covariate
-rather than a binary split.
+**The data dictionary generates itself** from the stored tables, by
+`docs/gen_data_dictionary.py`, rather than being maintained by hand. A
+hand-written one drifts away from the data the moment a column changes.
 
-The index reports which dimensions are present and refuses to be mistaken for
-a complete measure while any are missing, since four of the five require the
-BigQuery patent retrieval that has not yet been run.
-
-scripts/prep/prep_11_ip_index.py, scripts/colab/QM640_Analysis.ipynb
-
-## 6. Documentation
-
-*Documentation: README, project guide, and generated data dictionary*
-
-Reference material for a reader arriving without context.
-
-```
-  README.md               pipeline order, design decisions, how to run it
-  docs/PROJECT_GUIDE.md   objective, joins, preparation, sampling, BigQuery plan
-  docs/DATA_DICTIONARY.md every column of every stored table
-  docs/DATA_SOURCES.md    the ten endpoints, with their access quirks
-```
-
-The data dictionary is generated from the stored Parquet files by
-docs/gen_data_dictionary.py rather than maintained by hand, so it cannot drift
-away from the tables it describes.
-
-The README also records the design decisions a reader would otherwise have to
-reverse-engineer: why the window closes at 2019 (outcome maturity), why
-registry enrollment is excluded (it records actual enrollment, which encodes
-the outcome), and why biologics need a different IP measure (the BPCIA imposes
-no patent-listing duty, so no drug-level patent record exists).
-
-## 7. Pharmacovigilance
-
-*Pharmacovigilance: adverse-event disproportionality and sponsor safety burden*
-
-FAERS has no exposure denominator, so a raw adverse-event count measures how
-widely a drug is used rather than how dangerous it is. Signals are therefore
-computed as disproportionality against the whole database, following Evans,
-Waller and Davis (2001): PRR and ROR with a Yates-corrected chi-square, over
-4.08 million drug-event pairs from 46 quarterly extracts, 2015-2026.
-
-Three steps the analysis depends on:
-
-- Case de-duplication across the full series. One case identifier recurs in many quarters with a rising version number, and only the latest is kept.
-
-- Retracted cases are removed using each quarter's deletion list.
-
-- Only suspect drugs count (primary or secondary). Concomitant medications are not implicated in the report and would dilute every signal.
-
-PRR is unbounded where a cell is sparse, so summaries use the median and are
-restricted to cells with at least three reports.
-
-Sponsor burden is linked trial to ingredient to sponsor, not by FAERS reporter,
-because the reporter is frequently a generics maker or distributor rather than
-the company that ran the trial.
-
-scripts/prep/prep_04_faers.py and companions
-
-## 8. Patent retrieval
-
-*Patent retrieval: BigQuery queries, runbook, and prepared inputs*
-
-Patent data comes from the Google Patents public dataset on BigQuery, queried
-in place rather than downloaded: roughly 100 GB of patent records yield a few
-megabytes of features. PatentsView, the obvious alternative, now requires an
-API key and its bulk endpoint is closed.
-
-- 01_patent_core.sql                   assignee, CPC class, dates, citations, family, for the Orange Book patents 02_forward_citations_and_family.sql  citation impact and geographic breadth 03_assignee_portfolio.sql            sponsor portfolio by year - the measure that exists for every trial, including drugs never approved, and therefore the one free of survivorship bias
-
-RUNBOOK.md gives the console steps; README_COST.md explains that BigQuery bills
-by bytes scanned per column, so the full-text claims and description columns
-must be left alone.
-
-Inputs are prepared for direct use: 6,476 unique patent publication prefixes
-(pediatric-exclusivity suffixes removed, reissue numbers retained) and the 149
-assignee search names.
-
+**Every reported number is produced by code.** The analysis writes every
+statistic to `docs/interim_results.json`, and the written report reads from
+that file. If the analysis changes, the document changes with it, or it does
+not change at all. The two cannot quietly disagree.

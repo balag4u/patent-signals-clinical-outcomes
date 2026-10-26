@@ -1,475 +1,479 @@
 # Project guide
 
-A plain-language walkthrough: what the research asks, what data answers it, how the data was
-built, and what to do next.
+A walkthrough for someone opening this project for the first time: what the
+research asks, which data answers it, how that data was built, and what the
+answer turned out to be.
+
+No background in statistics or machine learning is assumed. Terms are explained
+where they first appear.
 
 ---
 
-## 1. The objective, in one page
+## 1. The question
 
-**The business problem.** A Phase III trial can cost hundreds of millions of dollars. Roughly one
-in ten drugs entering clinical testing ever reaches approval. Most of that money is spent on
-programmes that fail. Firms decide which programmes to fund largely on expert judgement, with no
-calibrated estimate of the risk.
+**The business problem.** A Phase III trial can cost hundreds of millions of
+dollars, and roughly one drug in ten entering clinical testing ever reaches
+approval. Most of that money is spent on programmes that fail. Companies decide
+which programmes to fund largely on expert judgement, with no calibrated
+estimate of the risk.
 
-**The idea.** Companies patent their science *before* trials begin. So a sponsor's patent position
-is observable at the exact moment a funding decision is made. That makes it a **leading
-indicator** rather than hindsight. Nobody has tested whether it predicts whether the drug survives
-development.
+**The idea being tested.** Companies patent their science *before* trials
+begin. So a sponsor's patent position is visible at the exact moment a funding
+decision is made. That makes it a **leading indicator**, something you can see
+in advance, rather than hindsight. Nobody had tested whether it predicts
+whether a drug survives development.
 
-**The question.** Does a sponsor's intellectual property position predict whether their clinical
-trial terminates early — and does that hold across therapeutic areas?
+**The question.** Does a sponsor's patent position predict whether its clinical
+trial is stopped early, and does the answer differ by disease area?
 
-**What is measured.**
+### What is being measured
 
 | | |
 |---|---|
-| **Unit of analysis** | One interventional Phase II/III drug trial |
-| **Time window** | Trials starting 2008–2019 |
-| **Outcome (what we predict)** | Did the trial terminate, withdraw or suspend — or complete? |
-| **Predictors** | IP position, trial design, regulatory pathway, sponsor history |
-| **Sample** | 39,437 trials with a resolved outcome; 22.17% terminated |
+| **One row is** | One interventional Phase II or Phase III drug trial |
+| **Time window** | Trials starting 2008 to 2019 |
+| **What we predict** | Was the trial terminated, withdrawn or suspended, or did it complete? |
+| **What we predict from** | Patent position, trial design, regulatory pathway, sponsor history |
+| **Sample** | 39,437 trials with a known outcome, of which 22.17% were terminated |
 
-**Four research questions.**
+*Interventional* means the researchers assign the treatment, rather than
+observing what patients already take.
 
-1. **RQ1** — Do strong-IP sponsors terminate trials at a different rate than weak-IP sponsors?
-2. **RQ2** — How well can termination be predicted from information available at trial start?
-3. **RQ3** — Does IP breadth relate to how long a trial takes to complete?
-4. **RQ4** — Does the IP–outcome relationship differ by therapeutic area?
+### The four research questions
 
-**Why this is a DBA project and not a biology project.** The unit is the *programme*, not the
-molecule. The output is a decision-support score for portfolio managers, not a drug.
+1. **RQ1.** Do sponsors with strong patents stop trials at a different rate
+   than sponsors with weak patents?
+2. **RQ2.** How well can termination be predicted from what is known at trial
+   start, and which pieces of information matter most?
+3. **RQ3.** Is a broader patent position related to how long a trial takes to
+   finish?
+4. **RQ4.** Does the patent relationship differ between disease areas?
+
+**Why this is a business project rather than a biology project.** The unit of
+study is the *programme*, not the molecule. The output is a decision-support
+score for portfolio managers, not a drug.
+
+### What the answer turned out to be
+
+**Patents do not help.** Adding the company-level patent measures to the
+prediction model changes its accuracy by -0.0002, with a p-value of 0.93. A
+p-value is the chance of seeing a result this large if there were really no
+effect, so 0.93 is what pure noise looks like.
+
+Trial size and sponsor experience carry the signal instead. The number of sites
+a trial registers is the strongest single predictor.
+
+Section 5 explains why an earlier version of the patent measure appeared to
+show an effect, and why that appearance was misleading. That explanation is
+arguably the most useful thing the project produced.
 
 ---
 
-## 2. The datasets and how they fit together
+## 2. The datasets and how they connect
 
-Ten sources. Each answers one part of the chain **patent → trial → approval → market → safety**.
+Ten sources. Each answers one part of the chain from **patent** to **trial** to
+**approval** to **market** to **safety**.
 
-| # | Source | What it contributes | Size |
+| # | Source | What it contributes | Raw size |
 |---|---|---|---|
-| 1 | **ClinicalTrials.gov API v2** | The outcome and all trial-design predictors. 106,311 Phase II/III drug trials | 44 MB |
-| 2 | **AACT** (CTTI) | MeSH disease categories → the six RQ4 strata | 2.5 GB |
-| 3 | **FDA Orange Book** | Small-molecule patents and exclusivity. 22,303 patent–product links | 8 MB |
-| 4 | **FDA Purple Book** | Biologics: 860 BLAs, 251 biosimilars | 0.5 MB |
-| 5 | **Drugs@FDA** | Regulatory pathway: priority review, orphan status, NME class | 41 MB |
-| 6 | **openFDA** | UNII substance registry — the spine for drug-name normalisation | 87 MB |
-| 7 | **FAERS** | Post-market safety, 46 quarters 2015–2026 | 2.8 GB |
-| 8 | **Open Targets 26.09** | Genetic evidence, and drug synonyms that decode development codes | 962 MB |
-| 9 | **Medicaid SDUD** | Commercial uptake, 12 years | 5.1 GB |
-| 10 | **Google Patents (BigQuery)** | **The IP predictors. Not yet retrieved — see section 7** | queried, not downloaded |
+| 1 | **ClinicalTrials.gov API v2** | The outcome, and every trial-design predictor. 106,311 Phase II and III drug trials | 44 MB |
+| 2 | **AACT** | Disease categories, used to form the six groups for RQ4 | 2.5 GB |
+| 3 | **FDA Orange Book** | Patents and exclusivity for conventional drugs. 22,303 patent-to-product links | 8 MB |
+| 4 | **FDA Purple Book** | Biologic medicines: 860 applications, 251 biosimilars | 0.5 MB |
+| 5 | **Drugs@FDA** | Regulatory pathway: priority review, orphan status, new-drug classification | 41 MB |
+| 6 | **openFDA** | The official substance registry, used as the spine for matching drug names | 87 MB |
+| 7 | **FAERS** | Reported side effects, 46 quarters from 2015 to 2026 | 2.8 GB |
+| 8 | **Open Targets** | Genetic evidence, and the synonym list that decodes company code names | 962 MB |
+| 9 | **Medicaid** | How much of each product was actually dispensed, over 12 years | 5.1 GB |
+| 10 | **Google Patents on BigQuery** | The patent measures. Queried in place, not downloaded | about 100 GB |
+
+A few of those names:
+
+- **AACT** is a public copy of the trial registry kept by the Clinical Trials
+  Transformation Initiative, used here because it carries disease
+  classifications the main registry does not expose.
+- **FAERS** is the FDA Adverse Event Reporting System, the database where
+  suspected side effects are reported.
+- **Biologic** means a medicine made from living cells, such as an antibody,
+  rather than manufactured by chemistry.
+- **Biosimilar** is the biologic equivalent of a generic.
 
 ### How they join
 
 ```
-                    ClinicalTrials.gov trial  (nct_id)
+                    ClinicalTrials.gov trial
                               |
-                   intervention free text
+                  drug name, as free text
                    "DAPAGLIFLOZIN 10 MG"
                               |
-                    [ entity resolution ]         <- the hard part, section 5
-                    UNII + Open Targets synonyms
+                 [ matching step, section 4 ]
                               |
                      FDA ingredient name
                               |
-                  Drugs@FDA application (appl_no)
-                     /        |         \
-                    /         |          \
-          Orange Book    Purple Book    FAERS
-          (patents,      (biosimilar    (safety
-           exclusivity)   status)        signals)
-                    \         |          /
-                     \        |         /
-                      Medicaid (commercial uptake)
+                   Drugs@FDA application
+                     /        |        \
+            Orange Book   Purple Book   FAERS
+            (patents)     (biologics)   (safety)
+                     \        |        /
+                       Medicaid (uptake)
 
-        SEPARATELY, and this is the primary IP measure:
+        SEPARATELY, and this is the main patent measure:
 
-              trial lead_sponsor  ->  patent assignee  ->  BigQuery
-              (works for EVERY trial, not just approved drugs)
+           trial sponsor -> patent owner -> Google Patents
+           (works for EVERY trial, not only approved drugs)
 ```
 
-**Why two IP paths matter.** The Orange Book path only exists for drugs that got *approved*. If IP
-variables came only from there, every trial in the dataset would belong to a drug that succeeded —
-circular, and the model would be meaningless. So the **primary** IP block is measured at the
-sponsor level via patent assignee, which exists for every trial regardless of outcome. The Orange
-Book path is a **validation subsample**.
+**Why there are two patent routes, and why it matters enormously.**
+
+The Orange Book route only exists for drugs that were **approved**. If the
+patent measures came only from there, every trial in the study would belong to
+a drug that had already succeeded. The comparison would be winners against
+winners, and the result would be meaningless.
+
+So the **main** patent measure is taken at company level, through the patent
+owner, which exists for every trial regardless of how it ended. The Orange Book
+route is kept as a **checking sample**.
+
+This distinction is not theoretical. Section 5 shows the two routes giving
+opposite answers.
 
 ---
 
 ## 3. How the data was cleaned and prepared
 
-Each script takes one raw source and emits one analysis-ready table. Together they reduce ~15 GB
-to 17 MB — a 900-fold reduction — by aggregating away detail the analysis never uses.
+Each script takes one raw source and produces one prepared table. Together they
+reduce about 15 GB to 20 MB, by summarising away detail the analysis never
+uses.
 
-| Script | Does what | Output |
+| Script | What it does | Output |
 |---|---|---|
-| `pull_ctgov.py` | Pages the API, 1,000 trials at a time, saving raw JSON for reproducibility | 107 JSON pages |
-| `prep_01_ctgov.py` | Flattens nested JSON to one row per trial; derives the outcome variable and trial duration | `ctgov_trials.parquet` |
-| `prep_02_orangebook.py` | Counts patents per application; separates **primary** (composition-of-matter) from **secondary** (method-of-use) patents → an evergreening ratio | `orangebook_ip.parquet` |
-| `prep_03_drugsatfda.py` | Extracts priority review, orphan designation, NME class per application | `drugsatfda_regulatory.parquet` |
-| `prep_04_faers.py` | De-duplicates 20M safety reports, then computes PRR/ROR disproportionality | `faers_*.parquet` |
-| `prep_05_medicaid.py` | Aggregates 56M prescription rows to product-year totals | `medicaid_product_year.parquet` |
-| `prep_06_mesh_areas.py` | Maps trials to six MeSH disease strata for RQ4 | adds `therapeutic_area` |
-| `prep_07_purplebook.py` | Parses biologics; flags biosimilar and interchangeable status | `purplebook_biologics.parquet` |
-| `prep_08_entity_resolution.py` | Matches free-text drug names to FDA ingredients | `trial_drug_resolution.parquet` |
-| `prep_09_modality.py` | Classifies each trial as biologic or small molecule | adds `modality` |
-| `prep_10_sponsor_assignee.py` | Rolls sponsors up to corporate groups for the patent query | `bigquery_assignee_names.csv` |
-| `prep_11_ip_index.py` | Builds the composite IP strength index used for the RQ1 split | `ip_index.parquet` |
+| `pull_ctgov.py` | Downloads the registry 1,000 trials at a time, saving the raw responses so the download can be audited | 107 JSON files |
+| `prep_01_ctgov.py` | Flattens the nested records to one row per trial and derives the outcome | `ctgov_trials.parquet` |
+| `prep_02_orangebook.py` | Counts patents per application, separating original compound patents from later method-of-use ones, and keeps the patent-to-application list | `orangebook_ip.parquet` |
+| `prep_03_drugsatfda.py` | Extracts priority review, orphan designation and new-drug status | `drugsatfda_regulatory.parquet` |
+| `prep_04_faers.py` | Removes duplicate safety reports, then computes how often each drug and side effect appear together relative to chance | `faers_*.parquet` |
+| `prep_05_medicaid.py` | Aggregates 56 million prescription rows to product-year totals | `medicaid_product_year.parquet` |
+| `prep_06_mesh_areas.py` | Groups trials into six disease areas for RQ4 | adds `therapeutic_area` |
+| `prep_07_purplebook.py` | Parses biologic products and flags biosimilars | `purplebook_biologics.parquet` |
+| `prep_08_entity_resolution.py` | Matches free-text drug names to official FDA ingredients | `trial_drug_resolution.parquet` |
+| `prep_09_modality.py` | Classifies each trial as a conventional drug or a biologic | adds `modality` |
+| `prep_10_sponsor_assignee.py` | Groups sponsors into parent companies and lists the names to search for in the patent data | `bigquery_assignee_names.csv` |
+| `prep_11_ip_index.py` | Combines the patent measures into one score for the RQ1 split | `ip_index.parquet` |
+| `prep_12_assignee_crosswalk.py` | Checks which real patent-owner names belong to which company | `bigquery_assignee_verified.csv` |
+| `prep_13_patents.py` | Turns the patent query results into per-trial measures, dated to each trial's start year | `sponsor_ip_features.parquet` |
 
-### Three cleaning decisions that changed the results
+### Four cleaning decisions that changed the answer
 
-These are not housekeeping. Each one would have produced a wrong answer if missed.
+These are not housekeeping. Each would have produced a wrong result if missed.
 
-**(a) The window closes at 2019, not 2023.** Terminated trials resolve fast; completed trials take
-years. So recent years look artificially bad. The share of trials with a known outcome falls from
-92.6% (2008 starts) to 34.8% (2023 starts), which made the termination rate appear to climb from
-20.8% to 33.5%. That climb is an artifact of incomplete follow-up, not a real trend. Closing at
-2019 gives 82.8% resolved.
+**(a) The window closes at 2019, not 2023.**
+Trials that are stopped reach their ending quickly; trials that finish take
+years. So recent years look artificially bad. The share of trials with a known
+outcome falls from 92.6% for 2008 starts to 34.8% for 2023 starts, which made
+the termination rate appear to climb from 20.8% to 33.5%. That climb is an
+illusion created by incomplete follow-up. Closing at 2019 leaves 82.8% of
+trials resolved.
 
-**(b) Enrollment was thrown out.** The registry's enrollment field records how many patients
-*actually* enrolled — and a terminated trial has few, *because it stopped*. Median 23 for
-terminated trials versus 86 for completed. Used as a predictor it achieves AUC 0.74, which looks
-impressive and is entirely circular. Among the few records still showing *planned* enrollment it
-achieves 0.48 — no signal at all. Excluded.
+**(b) The enrolment field was thrown out.**
+The registry records how many patients a trial *actually* enrolled, and a
+stopped trial has few precisely *because* it stopped. The median is 23 patients
+for stopped trials against 86 for completed ones. Used as a predictor it
+reaches an AUC of 0.74, which looks impressive and is entirely circular. Among
+the few records still showing the *planned* figure it reaches 0.48, which is no
+signal at all.
 
-**(d) Orange Book patent counts were double-counted.** Category counts were summed over product
-rows while the total used a distinct count, and one patent is listed against 3.15 products on
-average. The evergreening ratio came out above 1.0 — impossible for a ratio. Now de-duplicated to
-patent level.
+A predictor that secretly contains the answer is called **leakage**. A model
+built on one tests well and fails in real use, because at prediction time that
+information does not exist yet.
 
-**(c) Safety is measured by disproportionality, not counts.** FAERS has no denominator: a drug with
-more reports may simply be more widely used. Raw counts are meaningless, so the pipeline computes
-PRR and ROR against the whole database.
+**(c) Orange Book patents were being counted twice.**
+Category totals were summed across product rows while the overall total counted
+each patent once, and one patent is listed against 3.15 products on average.
+The result was a ratio above 1.0, which is impossible. Counting is now done per
+patent.
 
----
-
-## 4. How the sampling works
-
-This is the part the rubric weights most heavily (27.5 of 100 points).
-
-**The logic:** each research question needs a different statistical test, and each test needs a
-different minimum sample. The study must be powered for *all four*, so the final sample is the
-**maximum** of the four requirements.
-
-Everything is anchored on a *measured* termination rate of **p = 0.2217** (8,742 terminated of
-39,437 resolved), not an assumed one.
-
-| RQ | Test | Why that test | Minimum N |
-|---|---|---|---|
-| RQ1 | Two-proportion power analysis | Comparing two group rates | 1,166 |
-| RQ2 | Events-per-variable | Model stability depends on events, not total N | 2,031 |
-| RQ3 | Schoenfeld formula | Survival analysis is driven by number of events | 811 |
-| RQ4 | Confidence-interval method | Needs precision *within* each of six strata | **4,422** |
-
-**Final: N = max(1,166; 2,031; 811; 4,422) = 4,422.**
-
-RQ4 binds, and that is informative in itself: estimating six subgroups precisely is far more
-demanding than any single pooled test. A study powered only for main effects could not support
-the subgroup claims practitioners most want.
-
-**We have 39,437 trials — nearly 9× the requirement.** So 4,422 is a floor, not a target, and the
-surplus funds held-out validation and sensitivity checks.
-
-Reproduce it any time: `python scripts/analysis/sample_size.py`
+**(d) Safety is measured by disproportionality, not by counts.**
+FAERS does not record how many people took each drug. A widely used medicine
+collects more reports simply because more people take it, so a raw count
+measures popularity rather than danger. Instead the pipeline asks whether a
+drug and a side effect appear together more often than chance would predict.
 
 ---
 
-## 5. Reliability and mapping
+## 4. Matching drug names, and proving the match is right
 
 ### The problem
 
-The registry stores drug names as free text typed by trial sponsors. The same molecule appears as
-a brand name, a generic name, or an internal code, with dose and route attached:
+The registry stores drug names as free text typed by trial staff. The same
+molecule appears as a brand name, a generic name or an internal code, often
+with the dose attached:
 
 ```
-DAPAGLIFLOZIN 10 MG              <- dose attached
-AL-4943A OPHTHALMIC SOLUTION     <- development code + formulation
-EXPERIMENTAL: PLACEBO            <- arm label leaked into the field
-NANOPARTICLE ALBUMIN-BOUND PACLITAXEL
-TAK-438                          <- internal code, no public name
+DAPAGLIFLOZIN 10 MG              dose attached
+AL-4943A OPHTHALMIC SOLUTION     company code plus formulation
+EXPERIMENTAL: PLACEBO            the arm label leaked into the field
+TAK-438                          internal code, no public name
 ```
 
-Nothing joins to FDA records without normalising this first. There is **no published crosswalk**,
-which is exactly why the problem is hard.
+Nothing joins to FDA records without tidying this first, and **no published
+lookup table exists**, which is exactly why the problem is hard.
 
-### The solution: a five-stage ladder, strictest first
+### The approach: five stages, strictest first
 
 | Stage | Method | Matches | Example |
 |---|---|---|---|
-| 1 | **exact** — normalised name equals a known ingredient | 19,874 | `PEMBROLIZUMAB` |
-| 2 | **synonym** — Open Targets decodes development codes | 7,024 | `TAK-438` → VONOPRAZAN |
-| 3 | **token** — a known ingredient sits inside the phrase | 5,989 | `IVT AFLIBERCEPT` → AFLIBERCEPT |
-| 4 | **desalt** — salt forms reconciled | 31 | `ZOLEDRONATE` ↔ ZOLEDRONATE DISODIUM |
-| 5 | **fuzzy** — guarded typo correction | 81 | `AMANTADIN` → AMANTADINE |
-| — | unresolved | 6,438 | obscure codes, probiotics, procedures |
+| 1 | **exact**, the tidied name equals a known ingredient | 19,874 | `PEMBROLIZUMAB` |
+| 2 | **synonym**, a public list decodes company codes | 7,024 | `TAK-438` becomes VONOPRAZAN |
+| 3 | **token**, a known ingredient sits inside the phrase | 5,989 | `IVT AFLIBERCEPT` becomes AFLIBERCEPT |
+| 4 | **salt forms** reconciled | 31 | `ZOLEDRONATE` and ZOLEDRONATE DISODIUM |
+| 5 | **fuzzy**, guarded typo correction | 81 | `AMANTADIN` becomes AMANTADINE |
+| | unresolved | 6,438 | obscure codes, probiotics, procedures |
 
-**Result: 83.7% resolved to an ingredient; 49.4% to an FDA application number.**
+**Result: 83.7% matched to an ingredient, 49.5% to a specific FDA
+application.**
 
-### Two matching rules that were removed for being wrong
+### Two rules that were removed for being wrong
 
-Recall is easy to inflate and easy to fool. Two stages were cut after inspection:
+It is easy to raise the match rate and easy to fool yourself doing it. Two
+stages were cut after inspection:
 
-- A **`head`** stage matched a general term to an arbitrary specific product: `INSULIN` →
-  "INSULIN DEGLUDEC AND INSULIN ASPART", and `N-ACETYLCYSTEINE` → "N-ACETYLCYSTEINE ETHYL ESTER",
-  which is a *different compound*. Removed entirely.
-- **Fuzzy matching** mapped `STATIN` → `STATINE` — a drug class onto an amino acid. It now
-  requires length ≥ 6, similarity ≥ 0.93, and a length difference ≤ 3.
+- A prefix rule matched a general term to an arbitrary specific product:
+  `INSULIN` became "INSULIN DEGLUDEC AND INSULIN ASPART", and
+  `N-ACETYLCYSTEINE` became "N-ACETYLCYSTEINE ETHYL ESTER", **a different
+  compound**. Removed entirely.
+- Fuzzy matching turned `STATIN` into `STATINE`, a drug class into an amino
+  acid. It now requires a longer name, a higher similarity threshold and a
+  close length match.
 
-Synonym lookup uses **exact** matching only, because substring matching maps `APATINIB` onto
-`LAPATINIB` — two different drugs.
+Synonym lookup uses exact matching only, because partial matching turns
+`APATINIB` into `LAPATINIB`, two different drugs.
 
-### Proving precision
+### Proving the match rate is accurate
 
-Recall is measured automatically. **Precision cannot be** — there is no truth file, so a human
-must read a sample and judge it.
+How many matched is counted automatically. **How many matched correctly cannot
+be**, because there is no answer key. A person has to read a sample and judge
+it.
 
-`data/validation/precision_sample_200.csv` holds 200 links awaiting judgement. The design matters:
-a simple random sample would contain 0.4 fuzzy links, teaching nothing about the riskiest method.
-So risky methods are deliberately **over-sampled**, then weighted back to their true population
-share when precision is computed.
+A sample of 200 links was drawn and judged by hand. The sample design matters:
+drawing at random would have included almost no fuzzy matches, teaching nothing
+about the riskiest method. So risky methods were deliberately over-sampled,
+then weighted back to their true share when the score was computed.
 
-At an expected precision of 0.90, n = 200 gives a confidence interval of about **±4 percentage
-points**.
+**Result: precision 0.979**, with a confidence interval of 0.963 to 0.996. A
+confidence interval is the range the true value is likely to lie in.
 
-To do it: follow `data/validation/HOW_TO_ADJUDICATE.md`, fill the `verdict` column with
-CORRECT / PARTIAL / WRONG, then run:
+To repeat it, see `data/validation/HOW_TO_ADJUDICATE.md`, then run:
 
 ```bash
 python scripts/analysis/score_precision.py data/validation
 ```
 
-If a method scores below 0.85, **fix the rule and re-run the resolver, then draw a fresh sample**.
-Re-scoring the same sample after changing rules is circular.
-
-### The IP strength index (RQ1 only)
-
-RQ1 forces a binary split because a two-proportion test needs two groups. RQ2–RQ4 keep the
-components **separate** — dichotomising throws away information that was expensive to collect.
-
-Five dimensions, with scale-independent measures carrying the weight and portfolio *scale*
-down-weighted to 0.5 because it is largely a proxy for firm size:
-
-| Dimension | Measure | Weight |
-|---|---|---|
-| Quality | forward citations per patent | 1.0 |
-| Breadth | INPADOC family size and country count | 1.0 |
-| Term | patent life remaining at trial start | 1.0 |
-| Focus | share of portfolio in A61K/A61P | 1.0 |
-| Scale | portfolio count | 0.5 |
-
-Components are winsorised, then z-scored **within trial-start-year cohort**, because citations
-and counts accumulate with age and would otherwise register exposure time as IP strength. The
-evergreening ratio is deliberately **excluded**: a high secondary-patent share can mean
-sophisticated lifecycle management or a primary patent too weak to rely on, and a component of
-ambiguous sign corrupts a strength measure. Trials with no listed patent are **unobserved, not
-weak** — coding them zero would invent a finding.
-
-> **Not spec-complete yet.** Only TERM is available; the other four need BigQuery. The script
-> prints a warning and writes `ip_index_spec_complete = 0`. No headline RQ1 result until then.
+If a method scores below 0.85, fix the rule, re-run the matcher and **draw a
+fresh sample**. Re-scoring the same sample after changing the rules would be
+circular.
 
 ---
 
-## 6. What to do now
+## 5. The patent measure, and the trap inside it
 
-### On your Mac
+### Matching sponsors to patent owners
 
-Raw data lives at `/Volumes/Big256/DBA - Project Datasets` (~15 GB). Keep it. It is the archive,
-and re-downloading is slow and partly rate-limited.
+Trial registries record a sponsor name. Patents record a legal owner. The two
+rarely match, and the patent database abbreviates and sometimes reverses what
+it stores:
+
+| Written by hand | What the database actually holds |
+|---|---|
+| `ELI LILLY AND CO` | `LILLY CO ELI` |
+| `PFIZER INC` | `PFIZER` |
+| `ABBOTT LABORATORIES` | `ABBOTT LAB` |
+
+So searching for exact company names fails. When tried, Novartis returned 8,724
+patents while Eli Lilly returned 3 and Pfizer returned 2.
+
+The approach is to search for distinctive **word fragments**, which survive
+abbreviation, and then check every match offline where retrying is free. Three
+traps, all found in the real data:
+
+- **People share surnames with companies.** Over a hundred patent owners are
+  individuals named Takeda.
+- **Different companies share a name.** Schering AG of Berlin went to Bayer;
+  Schering Corporation of New Jersey became part of Merck. Unrelated firms.
+- **Ordinary words are not company names.** Searching for ORION matched Orion
+  Energy Systems and Orion Engineered Carbons.
+
+Every search term is counted against the results before being trusted. A term
+matching hundreds of owners is wrong by definition.
+
+Coverage: **64.4% of industry-sponsored trials**. University and government
+sponsors mostly have no measurable portfolio, which for them is closer to
+correct than wrong.
+
+### How patent strength is scored
+
+RQ1 needs two groups, because a two-group comparison demands them. RQ2 to RQ4
+keep the measures separate, since combining them throws away detail that was
+expensive to collect.
+
+Five dimensions, with the ones that do not simply track company size carrying
+more weight:
+
+| Dimension | How it is measured | Weight |
+|---|---|---|
+| Quality | how often later patents cite this one | 1.0 |
+| Breadth | how many countries the invention is filed in | 1.0 |
+| Term | years of protection remaining at trial start | 1.0 |
+| Focus | share of the portfolio in medicine classes | 1.0 |
+| Scale | how many patents the company holds | **0.5** |
+
+Scale counts half because a raw patent count is largely a measure of company
+size, and company size is something this study has to hold constant rather than
+measure twice.
+
+Two preparation steps, each with a reason:
+
+- **Extreme values are capped** at the 1st and 99th percentile, because patent
+  counts are heavily skewed and a few giants would otherwise set the scale.
+- **Measures are standardised within trials that started in the same year**,
+  because citations accumulate over time and a 2009 patent would otherwise look
+  stronger than a 2018 one purely from having existed longer.
+
+The **evergreening ratio is deliberately left out**. Evergreening means filing
+later, narrower patents to extend protection. A high share can mean
+sophisticated lifecycle management, or it can mean the original patent was too
+weak to rely on. A measure that could point either way would corrupt a strength
+score, so it is kept as a separate predictor.
+
+**Missing is not weak.** A trial whose sponsor cannot be measured is
+unmeasured, not weakly protected. Coding it as zero would invent a finding, so
+those trials leave the comparison and the exclusion is reported.
+
+> **Current state: three of the five dimensions are built.** Term, focus and
+> scale have data behind them. Quality and breadth exist only at drug level so
+> far. The script reports this rather than letting the score look complete.
+
+### The trap, and why it matters most
+
+Run the same RQ1 comparison on the two patent routes and they disagree:
+
+| Patent measure | Who can be measured | Difference in stop rate | p-value |
+|---|---|---|---|
+| Orange Book, drug level | only drugs that won approval | **-3.64 points** | 0.0000001 |
+| Company portfolio | every sponsor in the list | **+0.79 points** | 0.36 |
+
+The first looks like a strong finding. It is not, because of **who can be
+measured at all**. The Orange Book lists patents only for drugs that already
+won FDA approval. A drug abandoned in Phase II never appears there, however
+many patents its owner holds. So that measure exists only for drugs that
+already succeeded, and the comparison is winners against winners.
+
+Judging a group by looking only at its survivors is called **survivorship
+bias**. The company-level measure needs no approval, because a company's
+patents exist whether or not a particular drug reaches the market.
+
+This is why the company-level measure was specified from the start, and why the
+drug-level result is reported as a checking sample rather than a finding.
+
+---
+
+## 6. How the sample size was worked out
+
+Each research question needs a different statistical test, and each test needs
+a different minimum number of trials. The study has to be big enough for **all
+four**, so the requirement is the largest of the four.
+
+Everything is anchored on a **measured** termination rate of 0.2217, that is
+8,742 stopped out of 39,437, rather than an assumed one.
+
+| RQ | Test | Why that test | Minimum |
+|---|---|---|---|
+| RQ1 | Two-proportion power analysis | Comparing two group rates | 1,166 |
+| RQ2 | Events per variable | Model stability depends on how many events occur, not total size | 2,031 |
+| RQ3 | Schoenfeld formula | Survival analysis is driven by the number of events | 811 |
+| RQ4 | Confidence interval method | Needs precision *within* each of six groups | **4,422** |
+
+**Requirement: 4,422. Available: 39,437, nearly nine times over.**
+
+RQ4 sets the bar, and that is informative in itself: estimating six subgroups
+precisely is far more demanding than any single pooled test. A study powered
+only for overall effects could not support the subgroup claims practitioners
+most want.
+
+Having nine times the minimum is what lets the null result be stated precisely.
+For RQ1 the study could have detected a true gap of 1.89 percentage points and
+found 0.79. "We found no effect" and "we could not have found one" look
+identical in a p-value and mean opposite things.
+
+Reproduce the derivation any time:
 
 ```bash
-source ~/dba_venv/bin/activate          # Python 3.9 + pandas, sklearn, lifelines
-cd ~/DBA_Capstone/patent-signals-clinical-outcomes
+python scripts/analysis/sample_size.py
 ```
 
-Outstanding on the Mac:
-1. **FAERS prep is running** — finishes on its own, then produces three safety tables.
-2. **Adjudicate the 200 links** (~2 hours). This is the one task nobody else can do.
+---
 
-### On GitHub
+## 7. Running it
 
-`https://github.com/balag4u/patent-signals-clinical-outcomes` — **private**.
-
-> **Action required:** the rubric wants *open access*. A private repo scores zero if the grader
-> gets a 404. Either add your mentor and grader as collaborators, or run
-> `gh repo edit --visibility public` before submission.
-
-Everyday use:
+### Everything needed is already in the repository
 
 ```bash
-git add -A && git commit -m "message" && git push
+git clone https://github.com/balag4u/patent-signals-clinical-outcomes.git
+cd patent-signals-clinical-outcomes
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements-lock.txt
+
+python scripts/analysis/interim_eda.py
 ```
 
-### Running the build
+That rebuilds every figure and statistic and rewrites
+`docs/interim_results.json`, which is the file the written report reads from.
+It takes about three minutes, with no passwords and no internet connection.
 
-Nothing needs re-downloading. The analysis inputs are in the repo.
+Check the data loads as expected:
 
 ```bash
-# 1. verify the data loads and matches the synopsis
 python -c "
 import pandas as pd
 d = pd.read_parquet('data/analysis_ready/ctgov_trials.parquet')
 f = d[(d.start_year.between(2008,2019)) & (d.is_resolved==1)]
-print(f'frame {len(f):,}  p_term {f.is_terminated.mean():.4f}')"
-# expect: frame 39,437  p_term 0.2217
-
-# 2. reproduce the sample size derivation
-python scripts/analysis/sample_size.py
-
-# 3. run the analysis
-jupyter notebook scripts/colab/QM640_Analysis.ipynb
+print(f'frame {len(f):,}  termination rate {f.is_terminated.mean():.4f}')"
+# expect: frame 39,437  termination rate 0.2217
 ```
 
-**For Colab:** upload `data/analysis_ready/` to Google Drive, open the notebook in Colab, and set
-`DATA` to that folder. The extract is small enough to load in seconds.
+### Why the report reads from a file
 
-### Week-by-week
+Numbers typed into a document by hand drift the moment the analysis is re-run,
+and afterwards nobody can tell which version of the code produced which figure.
+So every statistic is written to `docs/interim_results.json` and the report is
+built from it. If the analysis changes, the document changes with it, or it
+does not change at all. The two cannot quietly disagree.
 
-| Week | Do |
-|---|---|
-| 2–3 | Adjudicate 200 links · set up Google Cloud · run BigQuery patent queries |
-| 4–5 | Join patent features · exploratory analysis · missingness audit |
-| 5–6 | RQ1 and RQ3 |
-| 6–7 | RQ2: train, temporally validate, SHAP attribution |
-| 7–8 | RQ4 moderation · subgroup equity audit · interim report |
-| 9–11 | Presentation · final report · make repo public |
+### Re-running the patent queries
+
+Only needed if the company list changes. See `sql/RUNBOOK.md` for the full
+procedure and `sql/README_COST.md` for how BigQuery charges.
+
+The short version: BigQuery bills by **how much data a query reads**, counted
+per column, so reading a column you do not need costs real money. Always check
+the estimate before running, and never select the full-text patent columns,
+which would consume an entire month's free allowance in one query.
 
 ---
 
-## 7. The patent data: Google BigQuery
+## 8. What is not finished
 
-### Why BigQuery and not a download
+Stated plainly, because a reader should not have to discover these.
 
-Patents are the **central independent variable** and the only major source not yet retrieved.
-
-The obvious route, PatentsView, is closed: the legacy API was retired, the current Search API
-requires a key, and the bulk S3 path returns 403. USPTO's own Open Data Portal also requires a key.
-
-**Google Patents Public Data** is a free BigQuery public dataset covering worldwide patents —
-assignees, classifications, citations, family members, claims. It needs no key and no download:
-you query it where it sits and pull back only the summarised result. Roughly 100 GB of patent
-data becomes a few megabytes of features.
-
-### When you need it
-
-**Weeks 2–3.** Not needed for the synopsis, which is finished. But RQ1 cannot run without it —
-the "strong IP vs weak IP" split *is* the patent variable. Until then the notebook uses sponsor
-prior-trial count as a stand-in, which is a proxy for company size, not IP.
-
-### Setting it up (about 20 minutes, no credit card)
-
-1. Go to `https://console.cloud.google.com` and sign in.
-2. Create a project — call it `qm640-capstone`.
-3. Open **BigQuery** from the left menu.
-4. You are now in the **sandbox**: 1 TB of query processing free per month, no billing account.
-5. Find the data: search `patents-public-data` in the Explorer panel, or open
-   `https://console.cloud.google.com/bigquery?p=patents-public-data&d=patents`.
-
-### The cost rule that matters most
-
-**BigQuery bills by bytes scanned per column, not rows returned.** A careless `SELECT *` on this
-table burns the monthly allowance in one query.
-
-| Column | Cost | Use it? |
-|---|---|---|
-| dates, ids, numbers | very low | yes |
-| `assignee_harmonized`, `cpc` | low | yes |
-| `citation` (via `ARRAY_LENGTH`) | moderate | yes |
-| `abstract_localized` | high | only if needed |
-| `claims_localized` | **very high** | **no** |
-| `description_localized` | **extreme** | **never** |
-
-**Always dry-run first.** In the console, the editor shows "This query will process X" before you
-run it. If X exceeds ~50 GB, stop and narrow the query.
-
-### The three queries, and what each is for
-
-In `sql/`, run in this order.
-
-**`01_patent_core.sql` — patent attributes**
-Input: the 7,079 Orange Book patent numbers in
-`data/analysis_ready/orangebook_patent_numbers.txt`.
-Returns per patent: assignee, CPC class, filing/priority/grant dates, backward citations, family
-id, and years from priority to grant.
-→ Feeds the drug-level IP block (the validation subsample).
-
-**`02_forward_citations_and_family.sql` — impact and breadth**
-Forward citations (how often later patents cite this one) as a quality proxy, and INPADOC family
-size and country count as geographic breadth. Uses the pre-computed `cited_by` field in
-`google_patents_research`, which avoids an expensive self-join.
-→ Feeds `n_forward_citations`, `family_size`, `family_n_countries`.
-
-**`03_assignee_portfolio.sql` — THE IMPORTANT ONE**
-Returns, for each sponsor and each year, how many US patents they had been granted and how many
-are pharmaceutical (CPC A61K/A61P/C07D/C12N), as a cumulative portfolio.
-→ Feeds `assignee_portfolio_size`, **the primary IP variable**, measured *as of each trial's start
-date* so there is no look-ahead.
-
-This is the survivorship-safe measure: it exists for every sponsor whether or not their drug was
-ever approved.
-
-### Sponsor-to-assignee mapping (BUILT)
-
-Query 3 needs a list of **patent assignee names**. Trial sponsors are recorded as
-"Hoffmann-La Roche"; patents are assigned to "F. HOFFMANN-LA ROCHE AG". These must be matched —
-a second entity-resolution problem, separate from the drug-name one.
-
-The scale is manageable:
-
-- 2,799 unique industry sponsors in the frame
-- the **top 20 cover 34%** of industry trials
-- the **top 200 cover 63%**
-
-`prep_10_sponsor_assignee.py` builds this. It produces
-`data/analysis_ready/bigquery_assignee_names.csv` — **149 assignee search names across 71
-corporate groups**, ready to paste into query 3 — and `sponsor_assignee_map.parquet`, which maps
-every trial to its corporate group.
-
-**Coverage: 56.4% of industry trials** resolve to a curated group. The unmatched remainder are
-small firms with few trials each; they are kept as their own group and can be matched by fuzzy
-assignee lookup later.
-
-Three things the script has to get right, and each caused a bug before it was fixed:
-
-1. **Corporate rollup.** Genentech's patents are Roche's, Janssen's are Johnson & Johnson's.
-   Without rollup a sponsor's portfolio is understated. Roche gains 114 Genentech trials, AbbVie
-   gains Allergan and Forest Laboratories, Takeda gains Shire and Millennium.
-2. **Acquisition timing.** Wyeth's patents became Pfizer's only in 2009. Because IP is measured
-   *as of each trial's start date*, the parent applies only from the acquisition year onward.
-   27 subsidiaries carry a `parent_from_year`.
-3. **Two firms that must never be merged.** "Merck Sharp & Dohme" (US) and "Merck KGaA,
-   Darmstadt" (Germany) are unrelated companies that split in 1917. Merging them would corrupt
-   two of the largest portfolios in the data. The script asserts zero cross-contamination in
-   both directions.
-
-A further trap: the registry states parentage in prose — "ArQule, Inc., a subsidiary of Merck
-Sharp & Dohme LLC". Name-cleaning strips that clause, which discards the very text identifying
-the parent, so parentage is read from the **raw** string before normalisation. That fix alone
-recovered 16 subsidiaries.
-
-### Running and retrieving
-
-1. Paste a query into the BigQuery editor.
-2. Supply the input list — either upload `orangebook_patent_numbers.txt` as a table, or replace
-   `@patent_list` with a literal array for a first test.
-3. Check the dry-run estimate.
-4. Run, then **Save results → CSV** (or to Drive if the result is large).
-5. Put the CSV in `data/patents/` in the repo.
-6. Write `prep_10_patents.py` to join it onto the trials table by `appl_no` (queries 1–2) and by
-   harmonised sponsor name and year (query 3).
-
-### Test it cheaply first
-
-Before running against all 7,079 patents, run one query with five patent numbers. It costs almost
-nothing and confirms the syntax, the join, and the output shape.
-
-### What success looks like
-
-Once joined, the analytic table gains roughly 10 IP columns. Then:
-
-- **RQ1** becomes real: split sponsors on `assignee_portfolio_size` instead of the trial-count proxy.
-- **RQ2** gets its IP block: the test is whether it beats the leakage-free baseline of **AUC 0.657**.
-- **RQ3** uses `family_size` as the breadth measure in the survival model.
-- **RQ4** tests whether any of it varies across the six therapeutic areas.
-
-That comparison against 0.657 is the whole experiment. If patent features do not move it, that is
-a finding worth reporting, not a failure.
+- **The patent score uses three of five dimensions.** Quality and breadth exist
+  only at drug level.
+- **64.4% of industry trials have a measured sponsor portfolio.** The rest are
+  recorded as unmeasured rather than zero.
+- **Patent owners are matched by name.** The recognised alternative is a
+  disambiguated owner identifier, published by PatentsView, whose public
+  download route closed during this study. Accuracy was therefore checked by
+  hand instead.
+- **The registry over-represents high-income countries**, so findings should
+  not be extrapolated to low- and middle-income settings.
+- **Twenty-one of the 205 company groups match no patents at all.** For some,
+  such as privately held firms, that is a real result. For others it may be a
+  name the search did not find, and the two cannot currently be told apart.
