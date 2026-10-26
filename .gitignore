@@ -9,3 +9,8 @@ raw/
 # 222 MB, exceeds GitHub's 100 MB file limit; regenerate with
 # prep_04_faers.py then prep_04b_faers_recompute.py
 data/analysis_ready/faers_drug_event_signals.parquet
+
+# Open Targets bulk download, about 800 MB. Re-downloadable from
+# https://ftp.ebi.ac.uk/pub/databases/opentargets/platform/26.09/output/
+data/06_target_genetics/
+data/06_targets_genetics/

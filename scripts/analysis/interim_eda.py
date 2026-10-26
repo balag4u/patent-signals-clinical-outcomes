@@ -107,6 +107,10 @@ print("\n[1] Frame construction")
 
 trials = pd.read_parquet(DATA / "ctgov_trials.parquet")
 ip = pd.read_parquet(DATA / "ip_index.parquet")
+# Genetic support for the drug's target, from prep_14_genetic_support.py.
+_gs = DATA / "genetic_support.parquet"
+GENETIC_AVAILABLE = _gs.exists()
+genetic = pd.read_parquet(_gs) if GENETIC_AVAILABLE else None
 res = pd.read_parquet(DATA / "trial_drug_resolution.parquet")
 ob = pd.read_parquet(DATA / "orangebook_ip.parquet")
 reg = pd.read_parquet(DATA / "drugsatfda_regulatory.parquet")
@@ -257,6 +261,9 @@ frame = frame.merge(
     how="left",
 )
 
+if GENETIC_AVAILABLE:
+    frame = frame.merge(genetic, on="nct_id", how="left")
+
 results["linkage"] = {
     "resolved_to_ingredient": int(frame.ingredient.notna().sum()),
     "resolved_to_ingredient_pct": round(float(frame.ingredient.notna().mean() * 100), 2),
@@ -307,12 +314,22 @@ IP_DRUG = [
 # of commercial pressure than any patent count.
 BIOSIMILAR = ["pb_is_biosimilar", "pb_is_interchangeable", "pb_is_originator",
               "pb_n_competing_biosimilars"]
+# Human genetic evidence for the gene the drug acts on. Nelson et al. (2015) and
+# Minikel et al. (2024) found such targets reach approval about twice as often,
+# so this enters as a control: the patent measures have to contribute over and
+# above the biology, not instead of it.
+#
+# has_genetic_support is deliberately left out. Measured across all diseases
+# rather than the trial's own, 99.8% of linked targets qualify, so the flag is
+# constant and carries no information. The continuous measures are kept.
+GENETIC = (["genetic_score_max", "genetic_score_mean", "genetic_n_diseases",
+            "genetic_n_targets"] if GENETIC_AVAILABLE else [])
 # Sponsor-level IP, from prep_13_patents.py. These are the survivorship-safe
 # measures: they do not require the drug to have reached an approved FDA
 # application, which the Orange Book block does. Both are cumulative as of the
 # trial's start year, so neither can leak the outcome.
 IP_SPONSOR = ["assignee_portfolio_size", "assignee_pharma_share"]
-CANDIDATES = DESIGN + SPONSOR + REGULATORY + IP_DRUG + IP_SPONSOR + BIOSIMILAR
+CANDIDATES = DESIGN + SPONSOR + REGULATORY + IP_DRUG + IP_SPONSOR + BIOSIMILAR + GENETIC
 
 miss = pd.DataFrame(
     {
@@ -325,6 +342,7 @@ miss["block"] = (
     ["Design"] * len(DESIGN) + ["Sponsor"] * len(SPONSOR)
     + ["Regulatory"] * len(REGULATORY) + ["IP (drug level)"] * len(IP_DRUG)
     + ["IP (sponsor level)"] * len(IP_SPONSOR) + ["Biosimilar"] * len(BIOSIMILAR)
+    + ["Genetic"] * len(GENETIC)
 )
 results["missingness"] = miss.to_dict("records")
 print(miss.sort_values("pct_missing", ascending=False).head(12).to_string(index=False))
@@ -477,7 +495,7 @@ m = miss.sort_values("pct_missing")
 m = m[m.pct_missing > 0]
 block_color = {"Design": BLUE, "Sponsor": BLUE, "Regulatory": ORANGE,
                "IP (drug level)": AQUA, "IP (sponsor level)": AQUA,
-               "Biosimilar": ORANGE}
+               "Biosimilar": ORANGE, "Genetic": ORANGE}
 ax.barh(np.arange(len(m)), m.pct_missing, color=[block_color[b] for b in m.block], height=0.66)
 for y, v in enumerate(m.pct_missing):
     ax.text(v + 0.7, y, f"{v:.1f}%", va="center", fontsize=8, color=INK)
@@ -666,7 +684,9 @@ FEATURE_SETS = {
     # the drug-level one cannot, being available only for approved drugs.
     "Design + sponsor + regulatory + IP (drug)": DESIGN + SPONSOR + REGULATORY + IP_DRUG,
     "Design + sponsor + regulatory + IP (sponsor)": DESIGN + SPONSOR + REGULATORY + IP_SPONSOR,
-    "Design + sponsor + regulatory + IP": CANDIDATES,
+    "Design + sponsor + regulatory + IP": DESIGN + SPONSOR + REGULATORY + IP_DRUG
+                                           + IP_SPONSOR + BIOSIMILAR,
+    "Design + sponsor + regulatory + IP + genetics": CANDIDATES,
 }
 nir = float(max(test.is_terminated.mean(), 1 - test.is_terminated.mean()))
 perf = [
@@ -771,6 +791,8 @@ results["rq2_increments"] = [
     increment("Design + sponsor + regulatory", "Design + sponsor + regulatory + IP (sponsor)"),
     increment("Design + sponsor + regulatory", "Design + sponsor + regulatory + IP"),
     increment("Design + sponsor", "Design + sponsor + regulatory + IP"),
+    increment("Design + sponsor + regulatory + IP",
+              "Design + sponsor + regulatory + IP + genetics"),
 ]
 for inc in results["rq2_increments"]:
     print(f"  + {inc['to'].split('+')[-1].strip():12s} dAUC {inc['delta_auc']:+.4f} "
@@ -1058,8 +1080,10 @@ fig, ax = plt.subplots(figsize=(6.4, 4.4))
 block_of = {**{c: "Design" for c in DESIGN}, **{c: "Sponsor" for c in SPONSOR},
             **{c: "Regulatory" for c in REGULATORY}, **{c: "IP" for c in IP_DRUG},
             **{c: "IP" for c in IP_SPONSOR},
-            **{c: "IP" for c in BIOSIMILAR}}
-cmap = {"Design": BLUE, "Sponsor": BLUE, "Regulatory": ORANGE, "IP": AQUA}
+            **{c: "IP" for c in BIOSIMILAR},
+            **{c: "Genetic" for c in GENETIC}}
+cmap = {"Design": BLUE, "Sponsor": BLUE, "Regulatory": ORANGE, "IP": AQUA,
+        "Genetic": ORANGE}
 ax.barh(np.arange(len(top)), top["drop"], color=[cmap[block_of[f]] for f in top.feature],
         height=0.66, xerr=top.sd, error_kw=dict(ecolor=INK_SOFT, elinewidth=0.8))
 for y, v in enumerate(top["drop"]):
