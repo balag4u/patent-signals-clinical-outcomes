@@ -1,25 +1,25 @@
 Assignee crosswalk report
 ========================================================================
 
-dictionary rows in                  1563
-curated names in                     149
-corporate groups in                   71
+dictionary rows in                  2126
+curated names in                     283
+corporate groups in                  205
 
-proposed links                       571
-  A_exact                            223
-  B_subsidiary                       273
-  C_parent                            44
+proposed links                       725
+  A_exact                            334
+  B_subsidiary                       297
+  C_parent                            63
   D_review                            31
 
-groups with no link at all             0 of 71  <- the real gap
-curated names not chosen for a row    10 of 149
+groups with no link at all            21 of 205  <- the real gap
+curated names not chosen for a row    31 of 283
   subsumed by a stronger match        10
-  in a group with no link at all       0
+  in a group with no link at all      21
 
-unclaimed dictionary rows            997
-  LIKELY_PERSON                      449  (9,283 patents)
-  NON_PHARMA                         169  (199,759 patents)
-  REVIEW                             379  (53,496 patents)
+unclaimed dictionary rows           1406
+  LIKELY_PERSON                      548  (11,278 patents)
+  NON_PHARMA                         179  (200,449 patents)
+  REVIEW                             679  (71,381 patents)
 
 ------------------------------------------------------------------------
 DECIDE THESE: largest unclaimed rows marked REVIEW
@@ -34,29 +34,29 @@ does not name. Each is either a missing name or a different firm.
      1,379  KYOWA HAKKO KOGYO KK
      1,344  ROCHE MOLECULAR SYSTEMS INC
      1,261  MITSUBISHI CHEM IND
+     1,231  NIHON KOHDEN CORP
+     1,220  NIHON DEMPA KOGYO CO
      1,191  BOEHRINGER MANNHEIM GMBH
+       929  ASAHI KASEI CHEMICALS CORP
        809  ISIS INNOVATION
+       784  ASAHI KASEI MICRODEVICES CORP
+       742  OFS FITEL LLC
        663  SANKYO SEIKI SEISAKUSHO KK
        654  BOEHRINGER SOHN INGELHEIM
        566  ROCHE PALO ALTO LLC
        485  ABBOTT POINT OF CARE INC
+       484  NIHON MICRONICS KK
+       475  TAIHO KOGYO CO LTD
+       430  BUNN O MATIC CORP
        426  BOEHRINGER INGELHEIM VETMEDICA GMBH
        422  DAIICHI SEIYAKU CO
+       420  NIHON PLAST CO LTD
        388  BOEHRINGER INGELHEIM VETMED
        384  BEHRINGWERKE AG
-       382  CHIESI FARM SPA
        382  KIRIN BREWERY
+       382  CHIESI FARM SPA
        355  MITSUBISHI PLASTICS INC
        339  TOSHIBA MITSUBISHI ELEC IND
-       337  MITSUBISHI AIRCRAFT CORP
-       332  SUMITOMO SPEC METALS
-       319  OTSUKA CHEMICAL CO LTD
-       316  ASTEX THERAPEUTICS LTD
-       305  TOSHIBA MITSUBISHI ELEC INC
-       301  Shanghai hengrui pharmaceutical co ltd
-       292  ABBOTT GMBH & CO KG
-       286  MITSUBISHI ENG PLASTICS CORP
-       283  MERCK FROSST CANADA INC
 
 ------------------------------------------------------------------------
 CURATED NAMES NOT CHOSEN FOR A ROW
@@ -77,6 +77,55 @@ column, not this list, to judge coverage.
   subsumed   PFIZER         WYETH
   subsumed   ROCHE          F HOFFMANN LA ROCHE AG
   subsumed   UCB            UCB PHARMA SA
+  NO LINK    ANTHERA        ANTHERA PHARMACEUTICALS
+  NO LINK    ARENA          ARENA PHARMACEUTICALS
+  NO LINK    AVID_RADIOPHARM AVID RADIOPHARMACEUTICALS
+  NO LINK    AZIDUS_BRASIL  AZIDUS BRASIL
+  NO LINK    EUROFARMA_LABORATORIOS EUROFARMA LABORATORIOS S A
+  NO LINK    GRUNENTHAL     GRUNENTHAL GMBH
+  NO LINK    IBSA_INSTITUT  IBSA INSTITUT BIOCHIMIQUE SA
+  NO LINK    IROKO          IROKO PHARMACEUTICALS LLC
+  NO LINK    KYNTRA_BIO     KYNTRA BIO
+  NO LINK    LABORATORIOS_SOPHIA_DE LABORATORIOS SOPHIA S A DE C V
+  NO LINK    LAKEFRONT_BIOTHERAPEUTICS LAKEFRONT BIOTHERAPEUTICS NV
+  NO LINK    MUNDIPHARMA    MUNDIPHARMA RESEARCH LIMITED
+  NO LINK    MUNDIPHARMA_KG MUNDIPHARMA RESEARCH GMBH & CO KG
+  NO LINK    PADAGIS        PADAGIS LLC
+  NO LINK    PHARMAAND      PHARMAAND GMBH
+  NO LINK    RESILIENT      RESILIENT PHARMACEUTICALS
+  NO LINK    SECURABIO      SECURABIO
+  NO LINK    SK_LIFE        SK LIFE SCIENCE INC
+  NO LINK    TAIHO_ONCOLOGY TAIHO ONCOLOGY INC
+  NO LINK    TALPHERA       TALPHERA INC
+  NO LINK    TRAWS          TRAWS PHARMA INC
+
+------------------------------------------------------------------------
+GROUPS WITH NO LINK AT ALL
+------------------------------------------------------------------------
+These sponsors would carry a portfolio of zero. Confirm the firm
+really holds no US patents before accepting that.
+
+  ANTHERA
+  ARENA
+  AVID_RADIOPHARM
+  AZIDUS_BRASIL
+  EUROFARMA_LABORATORIOS
+  GRUNENTHAL
+  IBSA_INSTITUT
+  IROKO
+  KYNTRA_BIO
+  LABORATORIOS_SOPHIA_DE
+  LAKEFRONT_BIOTHERAPEUTICS
+  MUNDIPHARMA
+  MUNDIPHARMA_KG
+  PADAGIS
+  PHARMAAND
+  RESILIENT
+  SECURABIO
+  SK_LIFE
+  TAIHO_ONCOLOGY
+  TALPHERA
+  TRAWS
 
 ------------------------------------------------------------------------
 LARGEST ROWS FLAGGED NON_PHARMA
@@ -121,24 +170,24 @@ and REVIEW are both excluded from linking, so a row in the wrong
 one of the two costs reading time, not accuracy. Only a wrong
 LINK corrupts a portfolio.
 
+       213  NIHON PARKERIZING
        121  NAKASHIMA DAIICHIRO
        109  AVENTIS PASTEUR
        105  TAKEDA TAKASHI
+       101  KASEI OPTONIX
         97  TANABE KOJI
         84  REDDY B RAGHAVA
         82  ROCHE OLIVIER
         80  TAKEDA KAZUAKI
         75  TAKEDA ARIHIRO
+        67  SUH DAEWOONG
         63  ENDO AKIRA
+        61  WILLIAMS OIL O MATIC HEATING
         61  ENDO MASATO
         59  ROCHE MARTIN
         59  PARTHASARADHI REDDY BANDI
         58  ENDO TAKESHI
-        57  OTSUKA HIROSHI
         57  BAYERER REINHOLD
+        57  OTSUKA HIROSHI
         55  SUMITOMO TAKAMICHI
-        54  OTSUKA KAGAKU YAKUHIN
-        53  ENDO YUTA
-        51  RATHNAKAR REDDY KURA
-        50  TANABE YASUHIKO
 

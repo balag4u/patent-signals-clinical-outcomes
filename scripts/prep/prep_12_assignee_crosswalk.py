@@ -178,6 +178,32 @@ FORCE_REVIEW_TOKENS = {"MERCK", "SCHERING"}
 #    either SANOFI or CSL. An ambiguous link is worse than a missing one.
 # ---------------------------------------------------------------------------
 
+# Links rejected by hand after the 2026-10-25 expansion. Each was proposed by the
+# subset rule because the harmonized name's tokens are a subset of a curated
+# name's, which is the right rule for historical entities (SANKYO CO for Daiichi
+# Sankyo, BEECHAM GROUP for GSK, TANABE SEIYAKU for Mitsubishi Tanabe) but wrong
+# when the shared token is the only thing the two firms have in common.
+EXCLUDE_LINKS = {
+    # a different industry entirely
+    "US CELLULAR CORP",        # mobile network operator, linked to Intra-Cellular
+    "VERTEX INC", "VERTEX LLC",# tax software, not Vertex Pharmaceuticals
+    "BRISTOL COMPANY", "BRISTOL INC",   # instruments, not Bristol-Myers
+    "LIPOSOME CO INC",         # The Liposome Company (US), not Taiwan Liposome
+    "INTERCEPT LLC",           # unrelated to Intercept Pharmaceuticals
+    # diversified parents, excluded on the same ground as Sumitomo Chemical
+    "MITSUBISHI CORP", "MITSUBISHI AUSTRALIA LTD",   # the trading house
+    "SUMITOMO CORP",                                  # the trading house
+    "KIRIN HOLDINGS KK", "KIRIN KK", "KIRIN CO LTD",  # beverages parent of Kyowa Kirin
+    # Kyowa is a common element in unrelated Japanese company names
+    "KYOWA CO LTD", "KYOWA LTD", "KYOWA KK",
+    # an individual inventor
+    "VAN SANTEN HELMAR",
+}
+# Kept deliberately, though they look odd: BAYER ANTWERP N V is a real Bayer
+# site, CEPHALON FRANCE is Teva's, and CSL BEHRING L L C, MYLAN SPECIALTY L P,
+# PT DEXA MEDICA, KIRO GRIFOLS S L and BIAL PORTELA & Cia are real corporate
+# entities that the person heuristic flags only because of their spaced initials.
+
 # A link flagged NON_PHARMA survives only if its name carries one of these.
 PHARMA_OVERRIDE = {"VACCINES", "BIOLOG"}
 
@@ -320,6 +346,10 @@ def build_verified(links, dictionary):
         name = r["harmonized_name"]
         flags = r["flags"]
         group = r["corporate_group"]
+
+        if name in EXCLUDE_LINKS:
+            dropped["unattributable"].append((group, name, r["n_patents"]))
+            continue
 
         if "FORCED_REVIEW" in flags:
             continue  # every MERCK row is resolved from HAND_ASSIGNMENT below
