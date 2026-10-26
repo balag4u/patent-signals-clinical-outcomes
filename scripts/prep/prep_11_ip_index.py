@@ -41,6 +41,20 @@ r  = pd.read_parquet(os.path.join(OUT, "trial_drug_resolution.parquet"),
 ob = pd.read_parquet(os.path.join(OUT, "orangebook_ip.parquet"))
 df = t.merge(r, on="nct_id", how="left").merge(ob, on="appl_no", how="left")
 
+# Sponsor-level features from prep_13_patents.py, measured as of each trial's
+# start year so the portfolio is what the sponsor held when the trial opened,
+# not what it holds now. Absent until the BigQuery extracts have been run.
+_sip = os.path.join(OUT, "sponsor_ip_features.parquet")
+if os.path.exists(_sip):
+    _s = pd.read_parquet(_sip)
+    _s = _s.drop(columns=[c for c in ("corporate_group",) if c in _s.columns])
+    _s = _s.drop_duplicates("nct_id")
+    df = df.merge(_s, on="nct_id", how="left")
+    print(f"merged sponsor-level IP features for "
+          f"{df.assignee_portfolio_size.notna().sum()} trial rows")
+else:
+    print("sponsor_ip_features.parquet absent; sponsor-level components pending")
+
 # years of patent life remaining AT TRIAL START - a genuine strength measure
 df["start_date"] = pd.to_datetime(df.start_date, errors="coerce")
 df["ob_term_remaining_yrs"] = (
@@ -58,10 +72,25 @@ DRUG = {
 # Scale-independent components are listed first and carry equal weight with each
 # other; portfolio SCALE is deliberately down-weighted because it is confounded
 # with firm size (see SCALE_WEIGHT below).
+# QUALITY and BREADTH are deliberately NOT here, though the design names them as
+# sponsor dimensions. sql/02 returns forward citations and INPADOC family size
+# for ORANGE BOOK patents, which are properties of the trial's drug, not of the
+# sponsor's portfolio. Two reasons not to pass them off as sponsor components:
+#
+#   They are sparse. Orange Book patents exist for 1,348 of 27,428 applications,
+#   so family size reaches 13% of the frame against 28.9% for the portfolio
+#   measures. Mixing them in dropped the index from 11,392 trials to 2,066,
+#   because build() below requires most components to be present.
+#
+#   They are the wrong unit. A sponsor-level BREADTH measure would aggregate
+#   family size across every patent the sponsor holds, not across the handful
+#   listed against one approved drug. That needs a further BigQuery pull joining
+#   cited_by and family_id to assignee_harmonized across the whole portfolio.
+#
+# They are carried through to ip_index.parquet and enter RQ2 as predictors in
+# the drug-level IP block, where gradient boosting handles their missingness
+# natively. They stay out of the composite used for the RQ1 split.
 SPONSOR_SCALE_FREE = {
-    "citations_per_patent":    "QUALITY - forward citations per patent",
-    "family_size":             "BREADTH - INPADOC family size",
-    "family_n_countries":      "BREADTH - distinct jurisdictions",
     "assignee_pharma_share":   "FOCUS - share of portfolio in A61K/A61P",
     "sponsor_term_remaining":  "TERM - mean patent life remaining at trial start",
 }
@@ -130,7 +159,13 @@ df["ip_tertile_extreme"] = np.where(df.ip_index.isna(), np.nan,
 
 cols = ["nct_id","ip_index","ip_index_drug","ip_index_sponsor","ip_index_source",
         "ip_strong","ip_tertile_extreme","ob_evergreen_ratio","ob_n_patents",
-        "ob_term_remaining_yrs"]
+        "ob_term_remaining_yrs",
+        # sponsor-level components, so RQ2 can test them as predictors and not
+        # only as inputs to the RQ1 split
+        "assignee_portfolio_size","assignee_pharma_share",
+        # drug-level patent quality and breadth from sql/02: RQ2 predictors,
+        # not composite components (see the note above SPONSOR_SCALE_FREE)
+        "citations_per_patent","family_size","family_n_countries"]
 p = os.path.join(OUT, "ip_index.parquet")
 df[[c for c in cols if c in df.columns]].to_parquet(p, index=False, compression="zstd")
 

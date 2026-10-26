@@ -235,7 +235,9 @@ ob_cols = [
 ]
 frame = frame.merge(ob[ob_cols].drop_duplicates("appl_no"), on="appl_no", how="left")
 frame = frame.merge(
-    ip[["nct_id", "ip_index", "ip_index_sponsor", "ip_strong", "ip_tertile_extreme", "ob_term_remaining_yrs"]],
+    ip[["nct_id", "ip_index", "ip_index_sponsor", "ip_strong", "ip_tertile_extreme",
+        "ob_term_remaining_yrs", "assignee_portfolio_size", "assignee_pharma_share",
+        "citations_per_patent", "family_size", "family_n_countries"]],
     on="nct_id",
     how="left",
 )
@@ -270,8 +272,17 @@ REGULATORY = ["fda_any_priority", "fda_has_orphan", "fda_is_nme", "fda_n_efficac
 IP_DRUG = [
     "ob_n_patents", "ob_n_primary_patents", "ob_n_secondary_patents",
     "ob_evergreen_ratio", "ob_patent_span_years", "ob_n_exclusivities",
+    # QUALITY and BREADTH for the trial's drug, from sql/02 via prep_13. These
+    # are Orange Book patents, so they are drug-level and sparse; trees handle
+    # the missingness, and they are excluded from the RQ1 composite.
+    "family_size", "family_n_countries", "citations_per_patent",
 ]
-CANDIDATES = DESIGN + SPONSOR + REGULATORY + IP_DRUG
+# Sponsor-level IP, from prep_13_patents.py. These are the survivorship-safe
+# measures: they do not require the drug to have reached an approved FDA
+# application, which the Orange Book block does. Both are cumulative as of the
+# trial's start year, so neither can leak the outcome.
+IP_SPONSOR = ["assignee_portfolio_size", "assignee_pharma_share"]
+CANDIDATES = DESIGN + SPONSOR + REGULATORY + IP_DRUG + IP_SPONSOR
 
 miss = pd.DataFrame(
     {
@@ -283,6 +294,7 @@ miss["pct_missing"] = (miss.n_missing / len(frame) * 100).round(2)
 miss["block"] = (
     ["Design"] * len(DESIGN) + ["Sponsor"] * len(SPONSOR)
     + ["Regulatory"] * len(REGULATORY) + ["IP (drug level)"] * len(IP_DRUG)
+    + ["IP (sponsor level)"] * len(IP_SPONSOR)
 )
 results["missingness"] = miss.to_dict("records")
 print(miss.sort_values("pct_missing", ascending=False).head(12).to_string(index=False))
@@ -433,7 +445,8 @@ save(tidy(ax).figure, "fig02_enrollment_leakage.png")
 fig, ax = plt.subplots(figsize=(6.4, 3.6))
 m = miss.sort_values("pct_missing")
 m = m[m.pct_missing > 0]
-block_color = {"Design": BLUE, "Sponsor": BLUE, "Regulatory": ORANGE, "IP (drug level)": AQUA}
+block_color = {"Design": BLUE, "Sponsor": BLUE, "Regulatory": ORANGE,
+               "IP (drug level)": AQUA, "IP (sponsor level)": AQUA}
 ax.barh(np.arange(len(m)), m.pct_missing, color=[block_color[b] for b in m.block], height=0.66)
 for y, v in enumerate(m.pct_missing):
     ax.text(v + 0.7, y, f"{v:.1f}%", va="center", fontsize=8, color=INK)
@@ -567,6 +580,11 @@ FEATURE_SETS = {
     "Design only": DESIGN,
     "Design + sponsor": DESIGN + SPONSOR,
     "Design + sponsor + regulatory": DESIGN + SPONSOR + REGULATORY,
+    # The two IP blocks are entered separately as well as together, because the
+    # whole question is whether the sponsor-level measure carries signal that
+    # the drug-level one cannot, being available only for approved drugs.
+    "Design + sponsor + regulatory + IP (drug)": DESIGN + SPONSOR + REGULATORY + IP_DRUG,
+    "Design + sponsor + regulatory + IP (sponsor)": DESIGN + SPONSOR + REGULATORY + IP_SPONSOR,
     "Design + sponsor + regulatory + IP": CANDIDATES,
 }
 nir = float(max(test.is_terminated.mean(), 1 - test.is_terminated.mean()))
@@ -668,6 +686,8 @@ def increment(from_set, to_set):
 results["rq2_increments"] = [
     increment("Design only", "Design + sponsor"),
     increment("Design + sponsor", "Design + sponsor + regulatory"),
+    increment("Design + sponsor + regulatory", "Design + sponsor + regulatory + IP (drug)"),
+    increment("Design + sponsor + regulatory", "Design + sponsor + regulatory + IP (sponsor)"),
     increment("Design + sponsor + regulatory", "Design + sponsor + regulatory + IP"),
     increment("Design + sponsor", "Design + sponsor + regulatory + IP"),
 ]
@@ -955,7 +975,8 @@ results["rq2_importance"] = [
 top = imp.head(16).iloc[::-1]
 fig, ax = plt.subplots(figsize=(6.4, 4.4))
 block_of = {**{c: "Design" for c in DESIGN}, **{c: "Sponsor" for c in SPONSOR},
-            **{c: "Regulatory" for c in REGULATORY}, **{c: "IP" for c in IP_DRUG}}
+            **{c: "Regulatory" for c in REGULATORY}, **{c: "IP" for c in IP_DRUG},
+            **{c: "IP" for c in IP_SPONSOR}}
 cmap = {"Design": BLUE, "Sponsor": BLUE, "Regulatory": ORANGE, "IP": AQUA}
 ax.barh(np.arange(len(top)), top["drop"], color=[cmap[block_of[f]] for f in top.feature],
         height=0.66, xerr=top.sd, error_kw=dict(ecolor=INK_SOFT, elinewidth=0.8))

@@ -105,9 +105,9 @@
     "resolved_to_application": 19501,
     "resolved_to_application_pct": 49.45,
     "with_regulatory_block": 19501,
-    "with_drug_level_ip": 14035,
+    "with_drug_level_ip": 14034,
     "with_drug_level_ip_pct": 35.59,
-    "with_sponsor_level_ip": 0
+    "with_sponsor_level_ip": 11392
   },
   "missingness": [
     {
@@ -232,39 +232,69 @@
     },
     {
       "variable": "ob_n_patents",
-      "n_missing": 25402,
+      "n_missing": 25403,
       "pct_missing": 64.41,
       "block": "IP (drug level)"
     },
     {
       "variable": "ob_n_primary_patents",
-      "n_missing": 25402,
+      "n_missing": 25403,
       "pct_missing": 64.41,
       "block": "IP (drug level)"
     },
     {
       "variable": "ob_n_secondary_patents",
-      "n_missing": 25402,
+      "n_missing": 25403,
       "pct_missing": 64.41,
       "block": "IP (drug level)"
     },
     {
       "variable": "ob_evergreen_ratio",
-      "n_missing": 34265,
-      "pct_missing": 86.89,
+      "n_missing": 34256,
+      "pct_missing": 86.86,
       "block": "IP (drug level)"
     },
     {
       "variable": "ob_patent_span_years",
-      "n_missing": 34265,
-      "pct_missing": 86.89,
+      "n_missing": 34256,
+      "pct_missing": 86.86,
       "block": "IP (drug level)"
     },
     {
       "variable": "ob_n_exclusivities",
-      "n_missing": 25402,
+      "n_missing": 25403,
       "pct_missing": 64.41,
       "block": "IP (drug level)"
+    },
+    {
+      "variable": "family_size",
+      "n_missing": 34299,
+      "pct_missing": 86.97,
+      "block": "IP (drug level)"
+    },
+    {
+      "variable": "family_n_countries",
+      "n_missing": 34299,
+      "pct_missing": 86.97,
+      "block": "IP (drug level)"
+    },
+    {
+      "variable": "citations_per_patent",
+      "n_missing": 39437,
+      "pct_missing": 100.0,
+      "block": "IP (drug level)"
+    },
+    {
+      "variable": "assignee_portfolio_size",
+      "n_missing": 28045,
+      "pct_missing": 71.11,
+      "block": "IP (sponsor level)"
+    },
+    {
+      "variable": "assignee_pharma_share",
+      "n_missing": 28045,
+      "pct_missing": 71.11,
+      "block": "IP (sponsor level)"
     }
   ],
   "duplicates": {
@@ -455,40 +485,40 @@
   ],
   "rq1_clustered": {
     "cluster_variable": "FDA application number (nct_id where unlinked)",
-    "n_clusters": 1255,
-    "n_trials": 14035,
-    "trials_per_cluster": 11.18,
-    "odds_ratio_ip_strong": 0.8001,
+    "n_clusters": 6437,
+    "n_trials": 11392,
+    "trials_per_cluster": 1.77,
+    "odds_ratio_ip_strong": 1.05,
     "or_ci95": [
-      0.7065,
-      0.9062
+      0.9261,
+      1.1904
     ],
-    "z": -3.5106,
-    "p_value": 0.00044705571585719527,
-    "naive_p_value": 1.3562340733304215e-07,
-    "se_inflation_design_effect": 2.25
+    "z": 0.7614,
+    "p_value": 0.44642650315689614,
+    "naive_p_value": 0.3153552427135127,
+    "se_inflation_design_effect": 1.74
   },
   "rq1": {
-    "n_computable": 14035,
-    "n_not_computable": 25402,
-    "p_term_strong": 0.1883,
-    "p_term_weak": 0.2248,
-    "n_strong": 6175,
-    "n_weak": 7860,
-    "risk_difference": -0.0365,
+    "n_computable": 11392,
+    "n_not_computable": 28045,
+    "p_term_strong": 0.1858,
+    "p_term_weak": 0.1785,
+    "n_strong": 5695,
+    "n_weak": 5697,
+    "risk_difference": 0.0073,
     "rd_ci95": [
-      -0.0499,
-      -0.023
+      -0.0069,
+      0.0214
     ],
-    "z": -5.2768,
-    "p_value": 1.314850453267995e-07,
-    "chi2": 27.624,
-    "cramers_v": 0.0444,
+    "z": 1.0041,
+    "p_value": 0.31532873127406935,
+    "chi2": 0.96,
+    "cramers_v": 0.0092,
     "selection_check": {
-      "p_term_computable": 0.2088,
-      "p_term_not_computable": 0.2288,
-      "z": -4.587,
-      "p_value": 4.506051054170593e-06
+      "p_term_computable": 0.1821,
+      "p_term_not_computable": 0.2377,
+      "z": -12.044,
+      "p_value": 2.0957282429354206e-33
     }
   },
   "rq2_increments": [
@@ -514,51 +544,71 @@
     },
     {
       "from": "Design + sponsor + regulatory",
-      "to": "Design + sponsor + regulatory + IP",
-      "delta_auc": 0.0026,
+      "to": "Design + sponsor + regulatory + IP (drug)",
+      "delta_auc": 0.0008,
       "ci95": [
-        -0.0008,
-        0.0057
+        -0.0032,
+        0.0047
       ],
-      "p_two_sided": 0.114
+      "p_two_sided": 0.638
+    },
+    {
+      "from": "Design + sponsor + regulatory",
+      "to": "Design + sponsor + regulatory + IP (sponsor)",
+      "delta_auc": 0.0008,
+      "ci95": [
+        -0.0027,
+        0.004
+      ],
+      "p_two_sided": 0.648
+    },
+    {
+      "from": "Design + sponsor + regulatory",
+      "to": "Design + sponsor + regulatory + IP",
+      "delta_auc": 0.0031,
+      "ci95": [
+        -0.0013,
+        0.0073
+      ],
+      "p_two_sided": 0.17
     },
     {
       "from": "Design + sponsor",
       "to": "Design + sponsor + regulatory + IP",
-      "delta_auc": 0.0068,
+      "delta_auc": 0.0073,
       "ci95": [
-        0.0008,
-        0.0121
+        0.0006,
+        0.0136
       ],
-      "p_two_sided": 0.022
+      "p_two_sided": 0.04
     }
   ],
   "rq2_increments_subsample": {
     "note": "Same nested comparison restricted to trials with an observable drug-level IP block, so the block is populated for every row.",
     "train_n": 10021,
-    "test_n": 4014,
-    "test_terminated": 943,
-    "auc_full_model": 0.6705,
+    "test_n": 4013,
+    "test_terminated": 942,
+    "auc_full_model": 0.6756,
     "increments": [
       {
         "from": "Design + sponsor",
         "to": "Design + sponsor + regulatory",
         "delta_auc": 0.0007,
         "ci95": [
-          -0.0056,
+          -0.0055,
           0.0065
         ],
-        "p_two_sided": 0.84
+        "p_two_sided": 0.798
       },
       {
         "from": "Design + sponsor + regulatory",
         "to": "Design + sponsor + regulatory + IP",
-        "delta_auc": -0.0011,
+        "delta_auc": 0.0034,
         "ci95": [
-          -0.0092,
-          0.0068
+          -0.0059,
+          0.0127
         ],
-        "p_two_sided": 0.82
+        "p_two_sided": 0.45
       }
     ]
   },
@@ -711,48 +761,140 @@
     },
     {
       "model": "L1-penalised logistic regression",
-      "features": "Design + sponsor + regulatory + IP",
+      "features": "Design + sponsor + regulatory + IP (drug)",
       "validation": "Temporal holdout 2016-2019",
-      "auc": 0.6152,
-      "accuracy": 0.5905,
-      "precision": 0.3246,
-      "recall": 0.5765,
-      "specificity": 0.5952,
-      "f1": 0.4154,
-      "balanced_accuracy": 0.5858,
+      "auc": 0.6157,
+      "accuracy": 0.5907,
+      "precision": 0.3249,
+      "recall": 0.5768,
+      "specificity": 0.5954,
+      "f1": 0.4156,
+      "balanced_accuracy": 0.5861,
       "brier": 0.2397,
       "confusion": {
-        "tp": 1850,
-        "fp": 3849,
-        "tn": 5659,
-        "fn": 1359
+        "tp": 1851,
+        "fp": 3847,
+        "tn": 5661,
+        "fn": 1358
       },
       "auc_ci95": [
-        0.6044,
-        0.6268
+        0.6048,
+        0.6273
+      ]
+    },
+    {
+      "model": "Gradient-boosted trees (HistGB)",
+      "features": "Design + sponsor + regulatory + IP (drug)",
+      "validation": "Temporal holdout 2016-2019",
+      "auc": 0.6618,
+      "accuracy": 0.6178,
+      "precision": 0.3469,
+      "recall": 0.583,
+      "specificity": 0.6296,
+      "f1": 0.435,
+      "balanced_accuracy": 0.6063,
+      "brier": 0.2229,
+      "confusion": {
+        "tp": 1871,
+        "fp": 3522,
+        "tn": 5986,
+        "fn": 1338
+      },
+      "auc_ci95": [
+        0.6506,
+        0.6722
+      ]
+    },
+    {
+      "model": "L1-penalised logistic regression",
+      "features": "Design + sponsor + regulatory + IP (sponsor)",
+      "validation": "Temporal holdout 2016-2019",
+      "auc": 0.6138,
+      "accuracy": 0.5812,
+      "precision": 0.3206,
+      "recall": 0.5893,
+      "specificity": 0.5785,
+      "f1": 0.4152,
+      "balanced_accuracy": 0.5839,
+      "brier": 0.2425,
+      "confusion": {
+        "tp": 1891,
+        "fp": 4008,
+        "tn": 5500,
+        "fn": 1318
+      },
+      "auc_ci95": [
+        0.6027,
+        0.6257
+      ]
+    },
+    {
+      "model": "Gradient-boosted trees (HistGB)",
+      "features": "Design + sponsor + regulatory + IP (sponsor)",
+      "validation": "Temporal holdout 2016-2019",
+      "auc": 0.6616,
+      "accuracy": 0.6141,
+      "precision": 0.346,
+      "recall": 0.5946,
+      "specificity": 0.6207,
+      "f1": 0.4375,
+      "balanced_accuracy": 0.6077,
+      "brier": 0.2242,
+      "confusion": {
+        "tp": 1908,
+        "fp": 3606,
+        "tn": 5902,
+        "fn": 1301
+      },
+      "auc_ci95": [
+        0.6507,
+        0.6719
+      ]
+    },
+    {
+      "model": "L1-penalised logistic regression",
+      "features": "Design + sponsor + regulatory + IP",
+      "validation": "Temporal holdout 2016-2019",
+      "auc": 0.6155,
+      "accuracy": 0.5855,
+      "precision": 0.3216,
+      "recall": 0.5793,
+      "specificity": 0.5876,
+      "f1": 0.4136,
+      "balanced_accuracy": 0.5835,
+      "brier": 0.2403,
+      "confusion": {
+        "tp": 1859,
+        "fp": 3921,
+        "tn": 5587,
+        "fn": 1350
+      },
+      "auc_ci95": [
+        0.6043,
+        0.6273
       ]
     },
     {
       "model": "Gradient-boosted trees (HistGB)",
       "features": "Design + sponsor + regulatory + IP",
       "validation": "Temporal holdout 2016-2019",
-      "auc": 0.6636,
-      "accuracy": 0.6195,
-      "precision": 0.3495,
-      "recall": 0.5896,
-      "specificity": 0.6296,
-      "f1": 0.4388,
-      "balanced_accuracy": 0.6096,
-      "brier": 0.2226,
+      "auc": 0.664,
+      "accuracy": 0.6228,
+      "precision": 0.3528,
+      "recall": 0.593,
+      "specificity": 0.6328,
+      "f1": 0.4424,
+      "balanced_accuracy": 0.6129,
+      "brier": 0.2211,
       "confusion": {
-        "tp": 1892,
-        "fp": 3522,
-        "tn": 5986,
-        "fn": 1317
+        "tp": 1903,
+        "fp": 3491,
+        "tn": 6017,
+        "fn": 1306
       },
       "auc_ci95": [
-        0.653,
-        0.6741
+        0.6531,
+        0.6747
       ]
     }
   ],
@@ -765,104 +907,104 @@
   },
   "rq2_calibration": {
     "method": "logistic recalibration of the outcome on the linear predictor (Van Calster et al., 2019); ideal slope 1, intercept 0",
-    "slope": 1.0701,
-    "intercept": -1.0351,
-    "mean_predicted_risk": 0.467,
+    "slope": 0.9392,
+    "intercept": -1.019,
+    "mean_predicted_risk": 0.4602,
     "observed_rate": 0.2523,
-    "over_prediction_ratio": 1.851,
+    "over_prediction_ratio": 1.824,
     "deciles": [
       {
         "decile": 1,
-        "predicted": 0.1982,
-        "observed": 0.0928,
+        "predicted": 0.16,
+        "observed": 0.1038,
         "n": 1272
       },
       {
         "decile": 2,
-        "predicted": 0.3201,
-        "observed": 0.1321,
+        "predicted": 0.2939,
+        "observed": 0.1494,
         "n": 1272
       },
       {
         "decile": 3,
-        "predicted": 0.375,
-        "observed": 0.1991,
+        "predicted": 0.358,
+        "observed": 0.1637,
         "n": 1271
       },
       {
         "decile": 4,
-        "predicted": 0.4158,
-        "observed": 0.2013,
+        "predicted": 0.4066,
+        "observed": 0.1997,
         "n": 1272
       },
       {
         "decile": 5,
-        "predicted": 0.4538,
-        "observed": 0.2209,
+        "predicted": 0.4493,
+        "observed": 0.2311,
         "n": 1272
       },
       {
         "decile": 6,
-        "predicted": 0.4906,
-        "observed": 0.2431,
+        "predicted": 0.4893,
+        "observed": 0.2345,
         "n": 1271
       },
       {
         "decile": 7,
-        "predicted": 0.5294,
-        "observed": 0.2602,
+        "predicted": 0.5304,
+        "observed": 0.2618,
         "n": 1272
       },
       {
         "decile": 8,
-        "predicted": 0.5704,
-        "observed": 0.2982,
+        "predicted": 0.5751,
+        "observed": 0.3139,
         "n": 1271
       },
       {
         "decile": 9,
-        "predicted": 0.612,
-        "observed": 0.3766,
+        "predicted": 0.6213,
+        "observed": 0.3608,
         "n": 1272
       },
       {
         "decile": 10,
-        "predicted": 0.7048,
-        "observed": 0.4992,
+        "predicted": 0.7185,
+        "observed": 0.5047,
         "n": 1272
       }
     ]
   },
   "rq2_calibration_corrected": {
     "method": "intercept-only (slope fixed at 1) logistic offset correction; the offset is estimated on the 2008-2015 training period and applied unchanged to the 2016-2019 holdout",
-    "intercept_offset_fitted_on_train": -1.2976,
-    "intercept_offset_fitted_on_holdout": -1.033,
-    "transfer_gap": 0.2646,
-    "slope_after": 1.0701,
-    "intercept_after": 0.3536,
-    "mean_predicted_risk_after": 0.2085,
+    "intercept_offset_fitted_on_train": -1.2848,
+    "intercept_offset_fitted_on_holdout": -1.0207,
+    "transfer_gap": 0.264,
+    "slope_after": 0.9392,
+    "intercept_after": 0.1876,
+    "mean_predicted_risk_after": 0.2092,
     "observed_rate": 0.2523,
-    "over_prediction_ratio_after": 0.826,
-    "brier_before": 0.2226,
-    "brier_after": 0.1759,
-    "auc_unchanged": 0.6636
+    "over_prediction_ratio_after": 0.829,
+    "brier_before": 0.2211,
+    "brier_after": 0.1754,
+    "auc_unchanged": 0.664
   },
   "rq1_selection": {
-    "observed_n": 14035,
-    "unobserved_n": 25402,
+    "observed_n": 14034,
+    "unobserved_n": 25403,
     "p_term_unobserved": 0.2288,
     "ipw": {
       "method": "inverse probability of observability, propensity on design and sponsor blocks, weights trimmed to [0.02, 0.98]",
-      "risk_difference": -0.0369,
-      "unweighted_risk_difference": -0.0365,
-      "effective_n": 38596.0,
+      "risk_difference": 0.0158,
+      "unweighted_risk_difference": 0.0024,
+      "effective_n": 38595.9,
       "assumption": "observability ignorable given the design and sponsor blocks"
     },
     "worst_case_bounds": {
       "method": "outcome is observed for all 39,437 trials and only the IP class is unknown, so the unobserved are assigned wholly to one group and then the other; no ignorability assumption",
-      "risk_difference_lower": -0.0395,
-      "risk_difference_upper": -0.0039,
-      "sign_identified": true
+      "risk_difference_lower": -0.0881,
+      "risk_difference_upper": 0.0915,
+      "sign_identified": false
     }
   },
   "unresolved_sensitivity": {
@@ -877,123 +1019,143 @@
   "rq2_importance": [
     {
       "feature": "n_locations",
-      "auc_drop": 0.05584,
-      "sd": 0.00314
+      "auc_drop": 0.06123,
+      "sd": 0.00322
     },
     {
       "feature": "sponsor_prior_completion_rate",
-      "auc_drop": 0.0329,
-      "sd": 0.00352
+      "auc_drop": 0.02985,
+      "sd": 0.00351
     },
     {
       "feature": "elig_criteria_lines",
-      "auc_drop": 0.02259,
-      "sd": 0.00229
+      "auc_drop": 0.02027,
+      "sd": 0.00214
     },
     {
       "feature": "who_masked_n",
-      "auc_drop": 0.01912,
-      "sd": 0.00204
+      "auc_drop": 0.0184,
+      "sd": 0.00191
     },
     {
       "feature": "n_secondary_outcomes",
-      "auc_drop": 0.00709,
-      "sd": 0.00155
-    },
-    {
-      "feature": "fda_has_orphan",
-      "auc_drop": 0.0059,
-      "sd": 0.00057
-    },
-    {
-      "feature": "is_phase3",
-      "auc_drop": 0.00589,
-      "sd": 0.00124
-    },
-    {
-      "feature": "fda_n_efficacy_suppl",
-      "auc_drop": 0.00553,
-      "sd": 0.00129
+      "auc_drop": 0.00893,
+      "sd": 0.00138
     },
     {
       "feature": "n_countries",
-      "auc_drop": 0.00549,
-      "sd": 0.0007
+      "auc_drop": 0.00651,
+      "sd": 0.00079
+    },
+    {
+      "feature": "fda_has_orphan",
+      "auc_drop": 0.00502,
+      "sd": 0.00061
+    },
+    {
+      "feature": "is_phase3",
+      "auc_drop": 0.00452,
+      "sd": 0.00102
+    },
+    {
+      "feature": "assignee_portfolio_size",
+      "auc_drop": 0.00432,
+      "sd": 0.0009
+    },
+    {
+      "feature": "assignee_pharma_share",
+      "auc_drop": 0.00414,
+      "sd": 0.00076
     },
     {
       "feature": "n_primary_outcomes",
-      "auc_drop": 0.00373,
-      "sd": 0.00128
+      "auc_drop": 0.00402,
+      "sd": 0.00114
     },
     {
-      "feature": "is_industry",
-      "auc_drop": 0.00225,
-      "sd": 0.00062
-    },
-    {
-      "feature": "sponsor_prior_trials",
-      "auc_drop": 0.00213,
-      "sd": 0.00088
+      "feature": "fda_n_efficacy_suppl",
+      "auc_drop": 0.00384,
+      "sd": 0.00171
     },
     {
       "feature": "n_collaborators",
-      "auc_drop": 0.002,
-      "sd": 0.00083
+      "auc_drop": 0.00255,
+      "sd": 0.00091
     },
     {
       "feature": "n_arms",
-      "auc_drop": 0.00164,
-      "sd": 0.00105
+      "auc_drop": 0.00243,
+      "sd": 0.00097
     },
     {
-      "feature": "ob_n_patents",
-      "auc_drop": 0.00067,
-      "sd": 0.00068
+      "feature": "is_industry",
+      "auc_drop": 0.00217,
+      "sd": 0.00036
     },
     {
-      "feature": "n_interventions",
-      "auc_drop": 0.00055,
-      "sd": 0.0006
+      "feature": "family_n_countries",
+      "auc_drop": 0.00133,
+      "sd": 0.00025
     },
     {
-      "feature": "ob_n_primary_patents",
-      "auc_drop": 0.00043,
-      "sd": 0.00037
-    },
-    {
-      "feature": "ob_evergreen_ratio",
-      "auc_drop": 0.00038,
-      "sd": 0.00051
-    },
-    {
-      "feature": "fda_is_nme",
-      "auc_drop": 0.00028,
-      "sd": 0.00023
+      "feature": "family_size",
+      "auc_drop": 0.00128,
+      "sd": 0.00042
     },
     {
       "feature": "ob_patent_span_years",
-      "auc_drop": 0.00026,
-      "sd": 0.00082
+      "auc_drop": 0.00104,
+      "sd": 0.00059
     },
     {
-      "feature": "ob_n_exclusivities",
-      "auc_drop": 0.0002,
+      "feature": "sponsor_prior_trials",
+      "auc_drop": 0.0009,
+      "sd": 0.00088
+    },
+    {
+      "feature": "fda_is_nme",
+      "auc_drop": 0.00075,
+      "sd": 0.00041
+    },
+    {
+      "feature": "ob_evergreen_ratio",
+      "auc_drop": 0.0006,
+      "sd": 0.00052
+    },
+    {
+      "feature": "ob_n_patents",
+      "auc_drop": 0.00041,
       "sd": 0.00057
     },
     {
-      "feature": "ob_n_secondary_patents",
-      "auc_drop": 0.00014,
-      "sd": 0.00012
+      "feature": "ob_n_primary_patents",
+      "auc_drop": 0.0003,
+      "sd": 0.00025
     },
     {
-      "feature": "is_biologic",
-      "auc_drop": 9e-05,
-      "sd": 0.00017
+      "feature": "ob_n_exclusivities",
+      "auc_drop": 0.00023,
+      "sd": 0.0006
     },
     {
       "feature": "fda_any_priority",
-      "auc_drop": 7e-05,
-      "sd": 0.00013
+      "auc_drop": 0.00021,
+      "sd": 0.0002
+    },
+    {
+      "feature": "n_interventions",
+      "auc_drop": 9e-05,
+      "sd": 0.00064
+    },
+    {
+      "feature": "is_randomized",
+      "auc_drop": 2e-05,
+      "sd": 0.0001
+    },
+    {
+      "feature": "is_biologic",
+      "auc_drop": 1e-05,
+      "sd": 0.00012
     },
     {
       "feature": "is_multinational",
@@ -1001,9 +1163,14 @@
       "sd": 0.0
     },
     {
-      "feature": "is_randomized",
-      "auc_drop": -0.0001,
-      "sd": 0.00017
+      "feature": "citations_per_patent",
+      "auc_drop": 0.0,
+      "sd": 0.0
+    },
+    {
+      "feature": "ob_n_secondary_patents",
+      "auc_drop": -0.00043,
+      "sd": 0.00026
     }
   ],
   "rq3_exclusions": {
@@ -1018,179 +1185,177 @@
     "terminated_competing": 8551,
     "median_months_completed": 25.79,
     "median_months_terminated": 25.03,
-    "cif_completion_60mo_strong": 0.6865,
-    "cif_completion_60mo_weak": 0.6551,
+    "cif_completion_60mo_strong": 0.7659,
+    "cif_completion_60mo_weak": 0.7566,
     "cox_completion": {
-      "n": 13937,
-      "events": 11079,
-      "n_clusters": 1252,
+      "n": 11343,
+      "events": 9304,
+      "n_clusters": 6398,
       "standard_errors": "cluster-robust on the FDA application",
-      "concordance": 0.6651,
+      "concordance": 0.6169,
       "ph_test_global_p": 0.0,
       "ph_violations_p05": [
-        "ip_strong",
         "is_biologic",
         "is_industry",
-        "is_phase3",
         "n_locations",
         "sponsor_prior_trials"
       ],
       "coefficients": {
         "ip_strong": {
-          "hr": 0.8598,
+          "hr": 1.0503,
           "ci95": [
-            0.7834,
-            0.9438
+            0.9784,
+            1.1274
           ],
-          "p": 0.0014885676457172365
+          "p": 0.17488157002276783
         },
         "is_phase3": {
-          "hr": 1.1568,
+          "hr": 1.2307,
           "ci95": [
-            1.0903,
-            1.2272
+            1.1623,
+            1.303
           ],
-          "p": 1.388107071708409e-06
+          "p": 1.0850430325197801e-12
         },
         "n_locations": {
-          "hr": 0.9977,
+          "hr": 0.9969,
           "ci95": [
-            0.9971,
-            0.9982
+            0.9965,
+            0.9974
           ],
-          "p": 3.0611590092092547e-16
+          "p": 1.4731669001157672e-39
         },
         "is_industry": {
-          "hr": 2.529,
+          "hr": 2.4037,
           "ci95": [
-            2.337,
-            2.7368
+            2.0927,
+            2.7609
           ],
-          "p": 2.2459493337468387e-117
+          "p": 2.3666018191177793e-35
         },
         "is_biologic": {
-          "hr": 0.6118,
+          "hr": 0.8076,
           "ci95": [
-            0.5206,
-            0.719
+            0.7191,
+            0.907
           ],
-          "p": 2.4690156555060095e-09
+          "p": 0.0003077586229205503
         },
         "sponsor_prior_trials": {
-          "hr": 0.9997,
+          "hr": 1.0,
           "ci95": [
-            0.9996,
-            0.9999
+            0.9998,
+            1.0001
           ],
-          "p": 0.001075988803096847
+          "p": 0.4976793481133822
         }
       },
       "piecewise_ip_strong": {
         "note": "cause-specific Cox re-fitted within follow-up windows, so the pooled hazard ratio can be read against its time-specific values",
         "windows": {
           "0-24 months": {
-            "events": 4951,
-            "hr": 0.8139,
+            "events": 5382,
+            "hr": 1.098,
             "ci95": [
-              0.7045,
-              0.9403
+              0.9927,
+              1.2144
             ],
-            "p": 0.005181541230335996
+            "p": 0.0690417316389173
           },
           "over 24 months": {
-            "events": 6128,
-            "hr": 0.9401,
+            "events": 3922,
+            "hr": 1.0273,
             "ci95": [
-              0.874,
-              1.0112
+              0.9519,
+              1.1086
             ],
-            "p": 0.09666847968437443
+            "p": 0.48873151778178936
           }
         },
         "same_direction": true
       }
     },
     "cox_termination": {
-      "n": 13937,
-      "events": 2858,
-      "n_clusters": 1252,
+      "n": 11343,
+      "events": 2039,
+      "n_clusters": 6398,
       "standard_errors": "cluster-robust on the FDA application",
-      "concordance": 0.6091,
-      "ph_test_global_p": 0.000153,
+      "concordance": 0.6469,
+      "ph_test_global_p": 0.0,
       "ph_violations_p05": [
         "is_industry",
         "n_locations"
       ],
       "coefficients": {
         "ip_strong": {
-          "hr": 0.8553,
+          "hr": 1.0918,
           "ci95": [
-            0.7708,
-            0.9491
+            0.9751,
+            1.2224
           ],
-          "p": 0.003226702432549199
+          "p": 0.12770424561493468
         },
         "is_phase3": {
-          "hr": 0.8999,
+          "hr": 0.7145,
           "ci95": [
-            0.8253,
-            0.9814
+            0.6412,
+            0.7961
           ],
-          "p": 0.01703074468327676
+          "p": 1.1228289096729324e-09
         },
         "n_locations": {
-          "hr": 0.9919,
+          "hr": 0.9965,
           "ci95": [
-            0.9883,
-            0.9956
+            0.9952,
+            0.9979
           ],
-          "p": 1.863687465138511e-05
+          "p": 3.1717722070056153e-07
         },
         "is_industry": {
-          "hr": 1.4906,
+          "hr": 1.1621,
           "ci95": [
-            1.3096,
-            1.6966
+            0.9056,
+            1.4912
           ],
-          "p": 1.5072115391925632e-09
+          "p": 0.2377340728405574
         },
         "is_biologic": {
-          "hr": 1.0207,
+          "hr": 0.5965,
           "ci95": [
-            0.8474,
-            1.2293
+            0.4995,
+            0.7123
           ],
-          "p": 0.8294429346182636
+          "p": 1.1546891575913686e-08
         },
         "sponsor_prior_trials": {
-          "hr": 0.9999,
+          "hr": 1.0004,
           "ci95": [
-            0.9997,
-            1.0001
+            1.0002,
+            1.0005
           ],
-          "p": 0.2765886743640105
+          "p": 7.754575636524048e-05
         }
       },
       "piecewise_ip_strong": {
         "note": "cause-specific Cox re-fitted within follow-up windows, so the pooled hazard ratio can be read against its time-specific values",
         "windows": {
           "0-24 months": {
-            "events": 1272,
-            "hr": 0.9192,
+            "events": 1147,
+            "hr": 1.0259,
             "ci95": [
-              0.8006,
-              1.0553
+              0.8962,
+              1.1744
             ],
-            "p": 0.2315763262906188
+            "p": 0.7106479313000225
           },
           "over 24 months": {
-            "events": 1586,
-            "hr": 0.8184,
+            "events": 892,
+            "hr": 1.2388,
             "ci95": [
-              0.7212,
-              0.9288
+              1.0547,
+              1.455
             ],
-            "p": 0.001914581555737928
+            "p": 0.00909460778016355
           }
         },
         "same_direction": true
@@ -1198,64 +1363,64 @@
     }
   },
   "rq4_clustered": {
-    "n_clusters": 1255,
-    "wald_chi2": 15.3328,
+    "n_clusters": 6437,
+    "wald_chi2": 7.4601,
     "df": 5,
-    "p_value": 0.009030945769534495,
+    "p_value": 0.18860533286306919,
     "interaction_terms": {
       "ip_strong:C(therapeutic_area)[T.Infectious Disease]": {
-        "or": 0.5511,
-        "p": 0.066909834589816,
-        "p_holm": 0.1338
+        "or": 1.0024,
+        "p": 0.9950568881857778,
+        "p_holm": 1.0
       },
       "ip_strong:C(therapeutic_area)[T.Metabolic & Endocrine]": {
-        "or": 0.3287,
-        "p": 0.00023220007210002596,
-        "p_holm": 0.0012
+        "or": 0.9224,
+        "p": 0.8244511138819883,
+        "p_holm": 1.0
       },
       "ip_strong:C(therapeutic_area)[T.Neurology & Psychiatry]": {
-        "or": 0.6558,
-        "p": 0.0827967981011836,
-        "p_holm": 0.1338
+        "or": 1.0747,
+        "p": 0.8149606318920988,
+        "p_holm": 1.0
       },
       "ip_strong:C(therapeutic_area)[T.Oncology]": {
-        "or": 0.5335,
-        "p": 0.0038222711618715152,
-        "p_holm": 0.0153
+        "or": 1.0463,
+        "p": 0.8801277825866672,
+        "p_holm": 1.0
       },
       "ip_strong:C(therapeutic_area)[T.Other]": {
-        "or": 0.6066,
-        "p": 0.017709689769189418,
-        "p_holm": 0.0531
+        "or": 0.7607,
+        "p": 0.33979611447601665,
+        "p_holm": 1.0
       }
     }
   },
   "rq4_moderation": {
-    "n": 14035,
-    "lr_chi2": 21.3465,
+    "n": 11392,
+    "lr_chi2": 9.339,
     "df": 5,
-    "p_value": 0.0006965989435748099,
-    "main_effect_or_ip_strong": 1.5449,
+    "p_value": 0.0962844441779057,
+    "main_effect_or_ip_strong": 1.1459,
     "interaction_terms": {
       "ip_strong:C(therapeutic_area)[T.Infectious Disease]": {
-        "or": 0.5511,
-        "p": 0.013034817139296901
+        "or": 1.0024,
+        "p": 0.9937182367869415
       },
       "ip_strong:C(therapeutic_area)[T.Metabolic & Endocrine]": {
-        "or": 0.3287,
-        "p": 2.6089529207936794e-05
+        "or": 0.9224,
+        "p": 0.7814125849358622
       },
       "ip_strong:C(therapeutic_area)[T.Neurology & Psychiatry]": {
-        "or": 0.6558,
-        "p": 0.037578405702862694
+        "or": 1.0747,
+        "p": 0.7748040600331781
       },
       "ip_strong:C(therapeutic_area)[T.Oncology]": {
-        "or": 0.5335,
-        "p": 0.0005853651001967362
+        "or": 1.0463,
+        "p": 0.8523388252789521
       },
       "ip_strong:C(therapeutic_area)[T.Other]": {
-        "or": 0.6066,
-        "p": 0.007008218212016036
+        "or": 0.7607,
+        "p": 0.2510726906496007
       }
     }
   },
