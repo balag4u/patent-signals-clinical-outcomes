@@ -98,6 +98,7 @@ prep_10_sponsor_assignee.py  sponsor name             ->  patent-owner names
 prep_11_ip_index.py          patent measures          ->  combined patent score
 prep_12_assignee_crosswalk.py BigQuery owner names    ->  checked company list
 prep_13_patents.py           BigQuery patent results  ->  per-trial patent features
+prep_14_genetic_support.py   drug, gene, evidence     ->  per-trial genetic support
 ```
 
 Steps 02 to 09 are independent of each other and can run in any order after 01.
@@ -197,7 +198,7 @@ This is why the study was designed with a company-level measure from the start.
 ## How far the null has been tested
 
 A null result is only worth reporting if it can survive the obvious objections.
-Three were put to it, in order, each answering a different one.
+Four were put to it, in order, each answering a different one.
 
 **First: is the null an artefact of measuring too few companies?**
 The measured company list was widened from 71 corporate groups to 184, and from
@@ -224,18 +225,71 @@ strength down for exactly the firms expected to score highest. Retrieving them
 added 8,822 patents, including 5,430 for one company alone. The patent
 contribution did not move.
 
-**What the three together establish.** The measure is now wider, richer and
-free of its one known directional bias, and the answer is the same each time.
+**Fourth: is the null an artefact of patents being the wrong signal entirely?**
+This is a different kind of objection. The first three ask whether the patent
+measure is good enough. This one asks whether the study could detect any real
+signal at all, which is the question a null result has to answer.
+
+The test is the strongest rival signal in the literature. Nelson et al. (2015)
+and Minikel et al. (2024) found that drugs aimed at a gene that human genetics
+has already tied to a disease reach approval about twice as often as drugs
+without that support. That is a larger published effect than anything claimed
+for patents, and the data behind it is free.
+
+So it was built. Each trial's drug was matched to the gene it acts on, and that
+gene to the genetic evidence it carries. The chain reached **62.4% of the study
+frame**, nearly double the 33.0% the sponsor patent measure covers, which makes
+it the best-covered variable in the project.
+
+It does not predict termination either. Sorted into four groups from weakest to
+strongest genetic evidence, the share of trials stopped runs **22.9%, 20.2%,
+23.8% and 24.5%**: no gradient, and the strongest group stops slightly more
+often than the weakest, which is the opposite of the expected direction. Added
+to the model on top of every other block it changes held-out accuracy by
+**-0.0031 AUC, p = 0.07**, which is what a variable carrying no signal does.
+
+Two limits on that, because without them it reads as a contradiction of the
+published work. **The outcome is different:** those studies predict whether a
+drug eventually reaches approval, while this one predicts whether a single trial
+is stopped early. A target can be well chosen and the trial still stop over
+recruitment, dosing or money. **The measure is looser:** they match a gene to
+the specific disease being treated, while this matches a gene to evidence for
+any disease, because mapping the registry's free-text conditions onto a disease
+ontology is a separate matching job the size of the drug matching already done.
+The consequence showed up at once: 99.8% of linked targets qualify on the looser
+definition, so the yes-or-no form of the variable is almost constant and was
+left out of the model, leaving only the continuous scores.
+
+That makes it a conservative test rather than a worthless one. A looser measure
+of the same thing should show at least some of the effect if the effect is
+there. It shows none, and the disease-matched version stays on the list of work
+to do.
+
+**What the four together establish.** The measure is now wider, richer and
+free of its one known directional bias, the answer is the same each time, and
+the rival signal the literature rates most highly does not predict this outcome
+either.
 The remaining estimate of the difference in stop rates is 0.79 percentage
 points with a confidence interval from -2.12 to +0.53, against a sample able to
 detect 1.89 points. The estimate also sits on either side of zero depending on
 which companies are measured, while staying equally far from significance,
 which is how an estimate behaves when the quantity it estimates is zero.
 
+**What the result points to instead.** The two strongest predictors in the model
+are the number of sites a trial opens and how reliably its sponsor has finished
+trials before. Both are facts about how a trial is run, not about the science
+behind the drug or the commercial position of the company running it. That is
+the reading most consistent with the evidence: early termination looks
+operational rather than scientific or commercial.
+
 **What this does not rule out.** Patent strength is measured here from portfolio
-size, pharmaceutical focus and remaining term. A sponsor-level measure of
-patent quality and geographic breadth is not yet built, and 35.6% of industry
-trials still have no measurable sponsor portfolio.
+size, pharmaceutical focus and remaining term. A sponsor-level measure of patent
+quality and geographic breadth is not yet built, 35.6% of industry trials still
+have no measurable sponsor portfolio, and the two sharper measures named above,
+patent breadth read from the claim text and genetic evidence matched to the
+trial's own disease, are not yet done. Each is the tighter form of a measure
+that produced a null in its looser form, so each could still change the
+answer.
 
 ## How patent strength is defined
 

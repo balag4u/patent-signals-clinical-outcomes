@@ -161,6 +161,7 @@ uses.
 | `prep_11_ip_index.py` | Combines the patent measures into one score for the RQ1 split | `ip_index.parquet` |
 | `prep_12_assignee_crosswalk.py` | Checks which real patent-owner names belong to which company | `bigquery_assignee_verified.csv` |
 | `prep_13_patents.py` | Turns the patent query results into per-trial measures, dated to each trial's start year | `sponsor_ip_features.parquet` |
+| `prep_14_genetic_support.py` | Joins each trial's drug to the gene it acts on, and that gene to its human genetic evidence | `genetic_support.parquet` |
 
 ### Four cleaning decisions that changed the answer
 
@@ -376,7 +377,7 @@ drug-level result is reported as a checking sample rather than a finding.
 
 ### How far the null has been tested
 
-A null is only worth reporting if it can survive the obvious objections. Three
+A null is only worth reporting if it can survive the obvious objections. Four
 were put to it, in order, each answering a different one.
 
 | Objection | What was done | Result |
@@ -384,11 +385,30 @@ were put to it, in order, each answering a different one.
 | The measure covers too few companies | Widened from 71 corporate groups to 184, and from 149 search names to 736, taking industry coverage from 56.4% to 64.4% and adding 1,634 trials | No change |
 | The measure is too crude | Added six further patent indicators, including the accepted stand-in for claim breadth, co-ownership, inventing-team size, prior art, prosecution length, and biosimilar competition for biologics | No change; the claim-breadth measure ranks 45th of 46 features |
 | The measure is biased towards the null | Retrieved the patents of twelve acquired companies that were routed to their parent for trial matching but never searched for in the patent data, which had understated the most acquisitive and therefore largest firms. 8,822 patents recovered | No change |
+| Patents are the wrong signal, and the design cannot detect any signal | Built human genetic evidence for the gene each trial's drug acts on, the strongest rival predictor in the literature, reaching 62.4% of the frame against 33.0% for the patent measure | Also null: termination runs 22.9%, 20.2%, 23.8%, 24.5% across quartiles of evidence, and the block changes held-out AUC by -0.0031, p = 0.07 |
 
 The third objection was the serious one. An error that understates the
 portfolios of the biggest companies drags any real effect towards zero, which
 is the direction of the reported finding. Removing it was the only way to say
 the null is not self-inflicted.
+
+The fourth is the one that bounds how the null should be read. Nelson et al.
+(2015) and Minikel et al. (2024) found that drugs aimed at a genetically
+supported target reach approval about twice as often as drugs without one. If
+that signal had shown up here, the patent null would simply mean patents are
+the wrong variable. It does not show up, on better coverage than the patent
+measures themselves, so the finding is wider than patents: what is being
+predicted appears not to depend on the science or the commercial position
+behind a drug.
+
+Two limits apply to that fourth test, and both are stated in the report.
+The outcome is different, since those studies predict approval while this
+predicts whether one trial stops early. And the measure is looser, since it
+asks whether a gene has evidence for any disease rather than for the disease
+being treated: 99.8% of linked targets qualify on that definition, so the
+yes-or-no form of the variable is almost constant and only the continuous
+scores enter the model. A looser measure of a real effect should still show
+part of it, so this is a conservative test rather than a void one.
 
 What remains is a difference of 0.79 percentage points with a confidence
 interval from -2.12 to +0.53, against a sample able to detect 1.89 points. The
@@ -396,9 +416,16 @@ estimate sits on either side of zero depending on which companies are measured
 while staying equally far from significance, which is how an estimate behaves
 when the quantity it estimates is zero.
 
-This does not rule out an effect of patent **quality** or **geographic
-breadth** at company level, which are not yet built, and 35.6% of industry
-trials still have no measurable sponsor portfolio.
+What does predict termination is operational: the number of sites a trial opens
+and how reliably its sponsor has finished trials before are the top two
+features by a wide margin.
+
+This does not rule out an effect of patent **quality** or **geographic breadth**
+at company level, which are not yet built, and 35.6% of industry trials still
+have no measurable sponsor portfolio. Nor does it close the two sharper tests:
+patent breadth read from the claim text, and genetic evidence matched to the
+trial's own disease. Each is the tighter form of a measure that gave a null in
+its looser form.
 
 ---
 

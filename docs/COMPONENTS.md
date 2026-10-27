@@ -1,6 +1,6 @@
 # How each part works, and why it is built that way
 
-The project has nine parts. This document explains the reasoning behind each
+The project has ten parts. This document explains the reasoning behind each
 one. Read `README.md` first for what the project is and how to run it, and
 `docs/PROJECT_GUIDE.md` for the full walkthrough. Read this when you want to
 know *why* something is done the way it is.
@@ -14,8 +14,9 @@ know *why* something is done the way it is.
 | 5 | [Dating the portfolio](#5-dating-the-portfolio) | Why the year matters more than the total |
 | 6 | [The patent strength score](#6-the-patent-strength-score) | How five measures become one |
 | 7 | [Safety signals](#7-safety-signals) | Why counts of side effects are misleading |
-| 8 | [The models](#8-the-models) | Why these models and this validation |
-| 9 | [Documentation](#9-documentation) | What is written down, and what generates itself |
+| 8 | [Genetic evidence for the drug's target](#8-genetic-evidence-for-the-drugs-target) | How the strongest rival signal is measured and controlled for |
+| 9 | [The models](#9-the-models) | Why these models and this validation |
+| 10 | [Documentation](#10-documentation) | What is written down, and what generates itself |
 
 ---
 
@@ -266,7 +267,60 @@ company that ran the trial, so the link runs trial to ingredient to sponsor.
 
 ---
 
-## 8. The models
+## 8. Genetic evidence for the drug's target
+
+**Why this is in the project at all.** Nelson et al. (2015) and Minikel et al.
+(2024) found that a drug aimed at a gene human genetics has already tied to a
+disease reaches approval about twice as often as a drug without that support.
+That is a larger published effect than anything claimed for patents, and the
+data is free. It enters here as a control: the patent measures have to earn
+their contribution over and above the biology, not instead of it.
+
+**How a trial is joined to a gene.** Four links, and the chain is only as
+strong as its weakest one:
+
+```
+  trial  ->  FDA ingredient     83.7% of trials, from the drug matching
+         ->  ChEMBL drug        matched on name, synonym or trade name
+         ->  gene target        Open Targets mechanism of action
+         ->  genetic evidence   Open Targets association scores
+```
+
+**Only human genetic sources count.** Open Targets scores each target and
+disease pair separately for each kind of evidence. Nine sources are used:
+genome-wide association studies, ClinVar submissions, rare variant burden
+tests, PanelApp gene panels, curated developmental disorder genes, expert
+gene-disease curation, rare disease curation, and curated literature and
+sequence variants.
+
+**Three sources are deliberately left out**, and the first matters most:
+
+- **Clinical precedence** is derived from drugs already in clinical trials.
+  Using it to predict trial outcomes would be circular, because the variable
+  would already contain the answer.
+- **Text mined literature** measures how much has been written about a target,
+  not what the genetics shows.
+- **Mouse knockouts** are not human genetics.
+
+**A limitation stated plainly.** Nelson and Minikel match a target to the
+specific disease being treated. This does not, because mapping the registry's
+free-text conditions onto a disease ontology is a separate matching problem the
+size of the drug matching already done. What is measured is whether the drug's
+target has genetic evidence for **any** disease, which is a weaker claim: a
+target with strong evidence in an unrelated condition scores as supported.
+
+The consequence is visible in the output. 99.8% of linked targets qualify, so
+the yes-or-no flag is almost constant and carries no information. It is excluded
+from the model and only the continuous scores are kept.
+
+That makes this a conservative test rather than a void one. If a weaker measure
+had shown signal, a sharper one would be expected to show at least as much.
+
+`scripts/prep/prep_14_genetic_support.py`
+
+---
+
+## 9. The models
 
 **Two models, deliberately.** A penalised logistic regression as the simple
 baseline, and gradient-boosted trees as the flexible learner. If the flexible
@@ -297,7 +351,7 @@ them as independent would overstate how much is really known.
 
 ---
 
-## 9. Documentation
+## 10. Documentation
 
 ```
   README.md                what the project is, what it found, how to run it

@@ -280,6 +280,47 @@ print(f"  drug-level IP observable:     {frame.ob_n_patents.notna().sum():,}")
 print(f"  sponsor-level IP observable:  {frame.ip_index_sponsor.notna().sum():,} (BigQuery pull pending)")
 
 # ----------------------------------------------------------------------------
+# 3b. How far the genetic-evidence measure reaches, and whether it separates
+#     terminated trials from the rest before any model is fitted.
+# ----------------------------------------------------------------------------
+if GENETIC_AVAILABLE:
+    have_gene = frame.genetic_score_max.notna()
+    supported = have_gene & (frame.has_genetic_support == 1)
+    gen = {
+        "trials_linked_to_a_gene": int(have_gene.sum()),
+        "trials_linked_to_a_gene_pct": round(float(have_gene.mean() * 100), 2),
+        "of_those_with_any_evidence_pct": round(
+            float(supported.sum() / max(int(have_gene.sum()), 1) * 100), 2),
+        "termination_rate_linked": round(
+            float(frame.loc[have_gene, "is_terminated"].mean()), 4),
+        "termination_rate_not_linked": round(
+            float(frame.loc[~have_gene, "is_terminated"].mean()), 4),
+    }
+    # Quartiles of the strongest evidence score the drug's target carries. A
+    # real effect would show a steady rise or fall across the four groups.
+    q = frame.loc[have_gene].copy()
+    try:
+        q["band"] = pd.qcut(q.genetic_score_max, 4, labels=[1, 2, 3, 4],
+                            duplicates="drop")
+        gen["by_quartile"] = [
+            {"quartile": int(b),
+             "n": int((q.band == b).sum()),
+             "termination_rate": round(
+                 float(q.loc[q.band == b, "is_terminated"].mean()), 4)}
+            for b in sorted(q.band.dropna().unique())
+        ]
+    except ValueError:
+        gen["by_quartile"] = []
+    results["genetic"] = gen
+    print(f"  drug linked to a gene target: {gen['trials_linked_to_a_gene']:,} "
+          f"({gen['trials_linked_to_a_gene_pct']}%)")
+    print(f"  of those, target carries some genetic evidence: "
+          f"{gen['of_those_with_any_evidence_pct']}%")
+    for row in gen["by_quartile"]:
+        print(f"    quartile {row['quartile']}: termination "
+              f"{row['termination_rate']:.4f} (n = {row['n']:,})")
+
+# ----------------------------------------------------------------------------
 # 4. Candidate predictors, missingness, duplicates, outliers
 # ----------------------------------------------------------------------------
 print("\n[4] Data quality audit")
