@@ -142,7 +142,7 @@ opposite answers.
 ## 3. How the data was cleaned and prepared
 
 Each script takes one raw source and produces one prepared table. Together they
-reduce about 15 GB to 20 MB, by summarising away detail the analysis never
+reduce about 15 GB to 22 MB, by summarising away detail the analysis never
 uses.
 
 | Script | What it does | Output |

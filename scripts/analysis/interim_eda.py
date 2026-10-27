@@ -273,11 +273,36 @@ results["linkage"] = {
     "with_drug_level_ip": int(frame.ob_n_patents.notna().sum()),
     "with_drug_level_ip_pct": round(float(frame.ob_n_patents.notna().mean() * 100), 2),
     "with_sponsor_level_ip": int(frame.ip_index_sponsor.notna().sum()),
+    # Coverage split by sponsor type. Dividing the frame-wide count by the
+    # industry count overstates industry coverage, because a few non-industry
+    # sponsors do hold portfolios, so each group is counted on its own.
+    "sponsor_ip_industry": int(
+        (frame.ip_index_sponsor.notna() & frame.is_industry.eq(1)).sum()),
+    "sponsor_ip_industry_pct": round(float(
+        (frame.ip_index_sponsor.notna() & frame.is_industry.eq(1)).sum()
+        / max(int(frame.is_industry.sum()), 1) * 100), 2),
+    "sponsor_ip_nonindustry": int(
+        (frame.ip_index_sponsor.notna() & frame.is_industry.eq(0)).sum()),
+    "sponsor_ip_nonindustry_pct": round(float(
+        (frame.ip_index_sponsor.notna() & frame.is_industry.eq(0)).sum()
+        / max(int((frame.is_industry == 0).sum()), 1) * 100), 2),
+    # Of the trials with no sponsor measure, how many are unmeasurable because
+    # the sponsor holds no commercial portfolio, and how many are industry
+    # sponsors the name matching did not reach.
+    "no_sponsor_ip_nonindustry": int(
+        (frame.ip_index_sponsor.isna() & frame.is_industry.eq(0)).sum()),
+    "no_sponsor_ip_industry": int(
+        (frame.ip_index_sponsor.isna() & frame.is_industry.eq(1)).sum()),
+    "no_sponsor_ip_industry_share_of_gap_pct": round(float(
+        (frame.ip_index_sponsor.isna() & frame.is_industry.eq(1)).sum()
+        / max(int(frame.ip_index_sponsor.isna().sum()), 1) * 100), 2),
 }
 print(f"  resolved to an FDA ingredient: {frame.ingredient.notna().sum():,}")
 print(f"  linked to an FDA application: {frame.appl_no.notna().sum():,}")
 print(f"  drug-level IP observable:     {frame.ob_n_patents.notna().sum():,}")
-print(f"  sponsor-level IP observable:  {frame.ip_index_sponsor.notna().sum():,} (BigQuery pull pending)")
+print(f"  sponsor-level IP observable:  {frame.ip_index_sponsor.notna().sum():,}"
+      f"  ({results['linkage']['sponsor_ip_industry_pct']}% of industry trials,"
+      f" {results['linkage']['sponsor_ip_nonindustry_pct']}% of the rest)")
 
 # ----------------------------------------------------------------------------
 # 3b. How far the genetic-evidence measure reaches, and whether it separates

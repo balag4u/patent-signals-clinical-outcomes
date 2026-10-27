@@ -69,7 +69,7 @@ were produced with. `requirements.txt` gives the looser ranges that also work.
 
 | Folder | What it holds |
 |---|---|
-| `data/analysis_ready/` | The prepared tables, 20 MB. **This is everything the analysis needs** |
+| `data/analysis_ready/` | The prepared tables, 14 of them, 22 MB. **This is everything the analysis needs** |
 | `data/patents/` | Results downloaded from Google BigQuery, plus the checked list of which patent owner belongs to which company |
 | `data/validation/` | A 200-link sample checked by hand, used to measure how accurate the drug matching is |
 | `scripts/prep/` | Thirteen scripts that turn raw downloads into the prepared tables |

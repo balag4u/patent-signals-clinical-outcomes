@@ -107,7 +107,14 @@
     "with_regulatory_block": 19501,
     "with_drug_level_ip": 14034,
     "with_drug_level_ip_pct": 35.59,
-    "with_sponsor_level_ip": 13026
+    "with_sponsor_level_ip": 13026,
+    "sponsor_ip_industry": 12707,
+    "sponsor_ip_industry_pct": 64.41,
+    "sponsor_ip_nonindustry": 319,
+    "sponsor_ip_nonindustry_pct": 1.62,
+    "no_sponsor_ip_nonindustry": 19389,
+    "no_sponsor_ip_industry": 7022,
+    "no_sponsor_ip_industry_share_of_gap_pct": 26.59
   },
   "genetic": {
     "trials_linked_to_a_gene": 24611,
