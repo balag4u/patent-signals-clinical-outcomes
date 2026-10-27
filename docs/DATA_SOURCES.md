@@ -3,7 +3,8 @@
 Ten sources. **All are open access**: none needs a university login, a paid
 subscription or an institutional agreement. Anyone can download the same files.
 
-Retrieved 24 to 26 September 2026. The raw downloads total about 15 GB and are
+The registry and FDA files were retrieved 24 to 26 September 2026. The patent
+extraction and the Open Targets release were retrieved 26 October 2026. The raw downloads total about 15 GB and are
 not stored in this repository, because they can be fetched again from the
 addresses below and the scripts in `scripts/prep/` rebuild every prepared table
 from them.
