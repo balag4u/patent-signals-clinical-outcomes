@@ -189,7 +189,7 @@ comparison is winners against winners.
 Judging a group by looking only at its survivors is called **survivorship
 bias**. The company-level measure needs no approval, because a company's patent
 portfolio exists whether or not any particular drug reaches the market. On that
-measure the gap is **+0.79 percentage points, p = 0.36** once the fact that
+measure the gap is **+0.11 percentage points, p = 0.90** once the fact that
 trials of the same drug are not independent pieces of evidence is accounted
 for, which is no effect at all.
 
@@ -238,7 +238,7 @@ for patents, and the data behind it is free.
 
 So it was built. Each trial's drug was matched to the gene it acts on, and that
 gene to the genetic evidence it carries. The chain reached **62.4% of the study
-frame**, nearly double the 33.0% the sponsor patent measure covers, which makes
+frame**, nearly double the 32.2% the sponsor patent measure covers, which makes
 it the best-covered variable in the project.
 
 It does not predict termination either. Sorted into four groups from weakest to
@@ -246,7 +246,9 @@ strongest genetic evidence, the share of trials stopped runs **22.9%, 20.2%,
 23.8% and 24.5%**: no gradient, and the strongest group stops slightly more
 often than the weakest, which is the opposite of the expected direction. Added
 to the model on top of every other block it changes held-out accuracy by
-**-0.0031 AUC, p = 0.07**, which is what a variable carrying no signal does.
+**-0.0050 AUC, 95% CI -0.0086 to -0.0015, p = 0.006**. The interval lies wholly
+below zero, so the block does not merely fail to help: it measurably costs
+accuracy on trials the model has not seen, which is what fitting noise does.
 
 Two limits on that, because without them it reads as a contradiction of the
 published work. **The outcome is different:** those studies predict whether a
@@ -265,13 +267,40 @@ of the same thing should show at least some of the effect if the effect is
 there. It shows none, and the disease-matched version stays on the list of work
 to do.
 
+**A fault found while checking the fourth.** The sponsor-to-company matching was
+attributing commercial portfolios to organisations that do not own them. The
+cause is worth recording, because it is the same fault that was found earlier on
+the patent-owner side and it will recur anywhere names are matched after
+normalisation.
+
+Normalisation strips corporate words so that "Pfizer Inc" and "Pfizer" match,
+which is what makes the lookup work at all. The side effect is that a short
+company name collapses to an ordinary English word: `SUN PHARMA` becomes `SUN`,
+`ZEALAND PHARMA` becomes `ZEALAND`, `UNITED THERAPEUTICS` becomes `UNITED`.
+Matched on a word boundary, those then claimed Sun Yat-sen University, the
+University of Auckland in New Zealand, and the United States Department of
+Defense. A separate key, `ONCOLOGY`, claimed every oncology co-operative group
+and twelve unrelated oncology companies for Clovis.
+
+Two rules now prevent it. A commercial portfolio is not attributed to a sponsor
+the registry classifies as non-industry, with an explicit allow-list for a
+company's own research arm; and the keys that were ordinary words have been
+narrowed. Together these removed about 320 false attributions.
+
+**This made the null cleaner, not weaker.** The gap between strongly and weakly
+protected sponsors fell from 0.79 percentage points to 0.11, and the p-value
+rose from 0.36 to 0.90. The small apparent gap was partly an artefact of
+crediting universities with pharmaceutical companies' patents. A wrong value is
+worse than a missing one: it puts a real number on the wrong trial, where a
+missing value is simply left out of the test.
+
 **What the four together establish.** The measure is now wider, richer and
 free of its one known directional bias, the answer is the same each time, and
 the rival signal the literature rates most highly does not predict this outcome
 either.
-The remaining estimate of the difference in stop rates is 0.79 percentage
-points with a confidence interval from -2.12 to +0.53, against a sample able to
-detect 1.89 points. The estimate also sits on either side of zero depending on
+The remaining estimate of the difference in stop rates is 0.11 percentage
+points with a confidence interval from -1.44 to +1.22, against a sample able to
+detect 1.90 points. The estimate also sits on either side of zero depending on
 which companies are measured, while staying equally far from significance,
 which is how an estimate behaves when the quantity it estimates is zero.
 
@@ -353,9 +382,13 @@ Three traps this has to avoid, each of which was found in the real data:
 Every search term is counted against the results before it is trusted. A term
 matching hundreds of owners is wrong by definition.
 
-Coverage: **64.4% of industry-sponsored trials** have a measured portfolio.
-University and government sponsors mostly do not, which for them is closer to
-correct than wrong, since they hold few pharmaceutical patents.
+Coverage: **64.3% of industry-sponsored trials** have a measured portfolio.
+Non-industry sponsors are left unmeasured by design, because only commercial
+assignee names were searched in the patent data. That is not a claim that they
+hold no patents: universities do hold them, and US institutions have held title
+to federally funded inventions since the Bayh-Dole Act of 1980. Their
+portfolios were simply never looked up, so an empty value means unmeasured, not
+absent.
 
 ## Matching trials to drugs
 
@@ -378,8 +411,9 @@ giving precision of **0.979**. See `data/validation/HOW_TO_ADJUDICATE.md`.
 ## Known limits
 
 - The patent score uses **three of five** dimensions.
-- **64.4%** of industry trials have a measured sponsor portfolio; the rest are
-  recorded as unmeasured rather than zero.
+- **64.3%** of industry trials have a measured sponsor portfolio; the rest are
+  recorded as unmeasured rather than zero, which matters because coding an
+  unmeasured sponsor as weak would manufacture a finding.
 - Patent owners are matched **by name**. The recognised alternative is a
   disambiguated owner identifier, published by PatentsView, whose public
   download route closed during this study.

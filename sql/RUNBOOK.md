@@ -162,8 +162,9 @@ python scripts/analysis/interim_eda.py    # rewrites docs/interim_results.json
 ```
 
 `prep_13` prints how much of the study it could measure. Expect about 64% of
-industry-sponsored trials. University and government sponsors mostly have no
-measurable portfolio, which for them is closer to correct than wrong.
+industry-sponsored trials. Non-industry sponsors are left unmeasured on purpose,
+because only commercial assignee names were searched. Universities do hold
+patents, so this is a gap in the measurement rather than a zero.
 
 ## If something comes back empty
 

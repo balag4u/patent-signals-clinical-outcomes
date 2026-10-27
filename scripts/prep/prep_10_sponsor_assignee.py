@@ -256,7 +256,7 @@ GROUPS = {
  "ASAHI_KASEI":     (["KASEI"], ["ASAHI KASEI PHARMA AMERICA CORPORATION"], None),
  "AROG":            (["AROG PHARMACEUTICALS"], ["AROG PHARMACEUTICALS INC"], None),
  "ARDELYX":         (["ARDELYX"], ["ARDELYX"], None),
- "SWEDISH_ORPHAN_BIOVITRUM": (["ORPHAN"], ["SWEDISH ORPHAN BIOVITRUM"], None),
+ "SWEDISH_ORPHAN_BIOVITRUM": (["SWEDISH ORPHAN"], ["SWEDISH ORPHAN BIOVITRUM"], None),
  "OCULAR_THERAPEUTIX": (["THERAPEUTIX"], ["OCULAR THERAPEUTIX INC"], None),
  "LABORATOIRES_THEA": (["THEA"], ["LABORATOIRES THEA"], None),
  "ARENA":           (["ARENA PHARMACEUTICALS"], ["ARENA PHARMACEUTICALS"], None),
@@ -264,7 +264,7 @@ GROUPS = {
  "SK_CHEMICALS":    (["SK CHEMICALS"], ["SK CHEMICALS CO LTD"], None),
  "MUNDIPHARMA_KG":  (["MUNDIPHARMA"], ["MUNDIPHARMA RESEARCH GMBH & CO KG"], None),
  "AMAG":            (["AMAG PHARMACEUTICALS"], ["AMAG PHARMACEUTICALS INC"], None),
- "CLOVIS_ONCOLOGY": (["ONCOLOGY"], ["CLOVIS ONCOLOGY INC"], None),
+ "CLOVIS_ONCOLOGY": (["CLOVIS"], ["CLOVIS ONCOLOGY INC"], None),
  "AZIDUS_BRASIL":   (["AZIDUS"], ["AZIDUS BRASIL"], None),
  "RESILIENT":       (["RESILIENT PHARMACEUTICALS"], ["RESILIENT PHARMACEUTICALS"], None),
  "AVEO":            (["AVEO PHARMACEUTICALS"], ["AVEO PHARMACEUTICALS INC"], None),
@@ -309,6 +309,46 @@ def assign(n, raw=""):
     # 2. otherwise match the cleaned sponsor name
     return _match_keys(n)
 
+# ---------------------------------------------------------------------------
+# Guards against a key claiming a sponsor it does not own.
+#
+# norm() strips corporate words so that "Pfizer Inc" and "Pfizer" match, which
+# is what makes the lookup work. The side effect is that a short company name
+# collapses to an ordinary English word: "SUN PHARMA" becomes "SUN", "ZEALAND
+# PHARMA" becomes "ZEALAND", "UNITED THERAPEUTICS" becomes "UNITED". Matched on
+# a word boundary, those then claim Sun Yat-sen University, the University of
+# Auckland in New Zealand, and the United States Department of Defense.
+#
+# Two rules remove that. Both are stated here rather than buried in the data,
+# because a wrong portfolio is worse than a missing one: it puts a real number
+# on the wrong trial, where a missing value is simply left out of the test.
+
+# Rule 1. A commercial portfolio is not attributed to a sponsor the registry
+# classifies as non-industry. Only commercial assignee names were searched in
+# the patent data, so a university's or a hospital's own portfolio was never
+# looked up. Universities do hold patents, and US institutions have held title
+# to federally funded inventions since the Bayh-Dole Act of 1980, so an empty
+# value here means unmeasured, not absent. Filling it in from a company that
+# happens to share a word would be a false attribution.
+#
+# The exception is a company's own research arm, which the registry sometimes
+# classifies as non-industry. Listed by exact name, having been checked by hand.
+NON_INDUSTRY_CORPORATE_ARMS = {
+    ("Institut de Recherches Internationales Servier", "SERVIER"),
+}
+
+# Rule 2. Industry sponsors that a hollowed-out key claims wrongly. Keyed on the
+# raw name because normalisation makes some of them identical: "United
+# BioPharma", "United Laboratories" and "United Therapeutics" all reduce to
+# "UNITED", so they cannot be separated after normalisation.
+EXCLUDE_SPONSOR_GROUP = {
+    ("Korea United Pharm. Inc.", "UNITED_THER"),
+    ("United Neuroscience Ltd.", "UNITED_THER"),
+    ("United Biomedical", "UNITED_THER"),
+    ("United BioPharma", "UNITED_THER"),
+    ("United Laboratories", "UNITED_THER"),
+}
+
 tr = pd.read_parquet(os.path.join(OUT, "ctgov_trials.parquet"),
                      columns=["nct_id","lead_sponsor","lead_sponsor_class",
                               "is_industry","start_year","is_resolved"])
@@ -318,10 +358,38 @@ uniq["corporate_group"] = [assign(n, raw) for n, raw in
                            zip(uniq.sponsor_norm, uniq.lead_sponsor)]
 tr = tr.merge(uniq, on=["lead_sponsor","sponsor_norm"], how="left")
 
+# Apply the two guards before anything downstream reads the mapping.
+_suppressed = []
+def _keep(raw, grp, is_ind):
+    if not grp:
+        return ""
+    if (raw, grp) in EXCLUDE_SPONSOR_GROUP:
+        _suppressed.append((raw, grp, "excluded by name"))
+        return ""
+    if is_ind == 0 and (raw, grp) not in NON_INDUSTRY_CORPORATE_ARMS:
+        _suppressed.append((raw, grp, "sponsor is not industry"))
+        return ""
+    return grp
+
+tr["corporate_group"] = [_keep(raw, grp, ind) for raw, grp, ind in
+                         zip(tr.lead_sponsor, tr.corporate_group, tr.is_industry)]
+
+if _suppressed:
+    seen = {}
+    for raw, grp, why in _suppressed:
+        seen.setdefault((raw, grp, why), 0)
+        seen[(raw, grp, why)] += 1
+    print(f"\n  suppressed {len(_suppressed):,} sponsor-to-company matches "
+          f"across {len(seen)} sponsors, because a match there would attribute "
+          f"a portfolio the sponsor does not own:")
+    for (raw, grp, why), c in sorted(seen.items(), key=lambda kv: -kv[1])[:12]:
+        print(f"    {c:5,}  {raw[:52]:<52} -> {grp}  ({why})")
+    if len(seen) > 12:
+        print(f"    and {len(seen) - 12} more")
+
 # unmatched sponsors fall back to their own normalised name as their own group
+tr["matched_curated"] = tr.corporate_group.ne("").astype(int)
 tr["corporate_group"] = tr.corporate_group.replace("", pd.NA).fillna(tr.sponsor_norm)
-tr["matched_curated"] = [1 if assign(n, raw) else 0 for n, raw in
-                         zip(tr.sponsor_norm, tr.lead_sponsor)]
 
 p = os.path.join(OUT, "sponsor_assignee_map.parquet")
 tr[["nct_id","lead_sponsor","sponsor_norm","corporate_group",

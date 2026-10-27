@@ -345,10 +345,13 @@ def main():
     print("wrote %s  (%d rows)" % (path, len(out)))
     if have.mean() < 0.5:
         print()
-        print("NOTE: the sponsor-level measure covers under half the frame, so it")
-        print("is not yet the survivorship-safe measure available for every trial")
-        print("that README.md describes. The curated list names 71 corporate")
-        print("groups; the frame holds thousands of distinct lead sponsors.")
+        print("NOTE: the sponsor-level measure covers under half the frame. It is")
+        print("the survivorship-safe measure, because it needs no approval, but")
+        print("it is not available for every trial. Non-industry sponsors are")
+        print("left unmeasured by design: only commercial assignee names were")
+        print("searched, so a university's own portfolio was never looked up.")
+        print("Among industry sponsors the limit is the curated list, which")
+        print("names a few hundred groups against thousands of lead sponsors.")
 
 
 if __name__ == "__main__":

@@ -306,9 +306,11 @@ traps, all found in the real data:
 Every search term is counted against the results before being trusted. A term
 matching hundreds of owners is wrong by definition.
 
-Coverage: **64.4% of industry-sponsored trials**. University and government
-sponsors mostly have no measurable portfolio, which for them is closer to
-correct than wrong.
+Coverage: **64.3% of industry-sponsored trials**. Non-industry sponsors are
+left unmeasured by design: only commercial assignee names were searched, so a
+university's or a hospital's own portfolio was never looked up. Universities do
+hold patents, so an empty value here means unmeasured rather than absent, and
+coding it as weak would manufacture a finding.
 
 ### How patent strength is scored
 
@@ -360,7 +362,7 @@ Run the same RQ1 comparison on the two patent routes and they disagree:
 | Patent measure | Who can be measured | Difference in stop rate | p-value |
 |---|---|---|---|
 | Orange Book, drug level | only drugs that won approval | **-3.64 points** | 0.0000001 |
-| Company portfolio | every sponsor in the list | **+0.79 points** | 0.36 |
+| Company portfolio | every sponsor in the list | **+0.11 points** | 0.90 |
 
 The first looks like a strong finding. It is not, because of **who can be
 measured at all**. The Orange Book lists patents only for drugs that already
@@ -385,7 +387,7 @@ were put to it, in order, each answering a different one.
 | The measure covers too few companies | Widened from 71 corporate groups to 184, and from 149 search names to 736, taking industry coverage from 56.4% to 64.4% and adding 1,634 trials | No change |
 | The measure is too crude | Added six further patent indicators, including the accepted stand-in for claim breadth, co-ownership, inventing-team size, prior art, prosecution length, and biosimilar competition for biologics | No change; the claim-breadth measure ranks 45th of 46 features |
 | The measure is biased towards the null | Retrieved the patents of twelve acquired companies that were routed to their parent for trial matching but never searched for in the patent data, which had understated the most acquisitive and therefore largest firms. 8,822 patents recovered | No change |
-| Patents are the wrong signal, and the design cannot detect any signal | Built human genetic evidence for the gene each trial's drug acts on, the strongest rival predictor in the literature, reaching 62.4% of the frame against 33.0% for the patent measure | Also null: termination runs 22.9%, 20.2%, 23.8%, 24.5% across quartiles of evidence, and the block changes held-out AUC by -0.0031, p = 0.07 |
+| Patents are the wrong signal, and the design cannot detect any signal | Built human genetic evidence for the gene each trial's drug acts on, the strongest rival predictor in the literature, reaching 62.4% of the frame against 32.2% for the patent measure | Also null: termination runs 22.9%, 20.2%, 23.8%, 24.5% across quartiles of evidence, and the block changes held-out AUC by -0.0050, p = 0.006, an interval wholly below zero |
 
 The third objection was the serious one. An error that understates the
 portfolios of the biggest companies drags any real effect towards zero, which
@@ -410,8 +412,8 @@ yes-or-no form of the variable is almost constant and only the continuous
 scores enter the model. A looser measure of a real effect should still show
 part of it, so this is a conservative test rather than a void one.
 
-What remains is a difference of 0.79 percentage points with a confidence
-interval from -2.12 to +0.53, against a sample able to detect 1.89 points. The
+What remains is a difference of 0.11 percentage points with a confidence
+interval from -1.44 to +1.22, against a sample able to detect 1.90 points. The
 estimate sits on either side of zero depending on which companies are measured
 while staying equally far from significance, which is how an estimate behaves
 when the quantity it estimates is zero.
@@ -453,8 +455,8 @@ only for overall effects could not support the subgroup claims practitioners
 most want.
 
 Having nine times the minimum is what lets the null result be stated precisely.
-For RQ1 the study could have detected a true gap of 1.89 percentage points and
-found 0.79. "We found no effect" and "we could not have found one" look
+For RQ1 the study could have detected a true gap of 1.90 percentage points and
+found 0.11. "We found no effect" and "we could not have found one" look
 identical in a p-value and mean opposite things.
 
 Reproduce the derivation any time:
@@ -519,7 +521,7 @@ Stated plainly, because a reader should not have to discover these.
 
 - **The patent score uses three of five dimensions.** Quality and breadth exist
   only at drug level.
-- **64.4% of industry trials have a measured sponsor portfolio.** The rest are
+- **64.3% of industry trials have a measured sponsor portfolio.** The rest are
   recorded as unmeasured rather than zero.
 - **Patent owners are matched by name.** The recognised alternative is a
   disambiguated owner identifier, published by PatentsView, whose public
