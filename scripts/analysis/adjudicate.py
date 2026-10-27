@@ -41,7 +41,7 @@ HINT = {
     "fuzzy":  "Edit-distance repair. CORRECT for a typo or punctuation fix. "
               "WRONG if the edit changed the molecule (watch short strings).",
     "synonym": "Development code or brand mapped to an ingredient. Rule 5: "
-               "CORRECT if the mapping is real — verify unfamiliar codes. "
+               "CORRECT if the mapping is real, but verify unfamiliar codes. "
                "Rule 4: a general term mapped to a specific product is WRONG.",
     "token":  "One token picked from a longer string. Rule 3: PARTIAL if the "
               "ingredient is genuinely one component of a regimen. Rule 6: "
@@ -56,7 +56,7 @@ BANNER = """\
 
 
 def fmt(row, i, total):
-    combo = "  *** COMBINATION — see Rule 3 ***" if int(row.is_combination) else ""
+    combo = "  *** COMBINATION, see Rule 3 ***" if int(row.is_combination) else ""
     appl = str(row.appl_no).split(".")[0] if pd.notna(row.appl_no) else "(none)"
     note = f"\n  note       : {row.notes}" if pd.notna(row.notes) and str(row.notes).strip() else ""
     cur = f"\n  current    : {row.verdict}" if pd.notna(row.verdict) and str(row.verdict).strip() else ""
@@ -113,7 +113,7 @@ def main():
         try:
             key = input("  verdict > ").strip().lower()
         except (EOFError, KeyboardInterrupt):
-            print("\n  interrupted — progress is already saved")
+            print("\n  interrupted; progress is already saved")
             break
 
         if key == "q":
