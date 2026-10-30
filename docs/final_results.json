@@ -1,0 +1,1059 @@
+{
+  "partitions": {
+    "development": {
+      "years": "2008-2013",
+      "n": 20050,
+      "terminated": 4089,
+      "rate": 0.2039
+    },
+    "validation": {
+      "years": "2014-2015",
+      "n": 6670,
+      "terminated": 1444,
+      "rate": 0.2165
+    },
+    "training": {
+      "years": "2008-2015",
+      "n": 26720,
+      "terminated": 5533,
+      "rate": 0.2071
+    },
+    "test": {
+      "years": "2016-2019",
+      "n": 12717,
+      "terminated": 3209,
+      "rate": 0.2523
+    },
+    "frame_rate": 0.2217,
+    "test_rate_by_year": {
+      "2016": 0.2153,
+      "2017": 0.2366,
+      "2018": 0.2693,
+      "2019": 0.2918
+    }
+  },
+  "selection": {
+    "L1-penalised logistic regression": {
+      "n_configurations": 5,
+      "chosen": {
+        "C": 0.03
+      },
+      "chosen_val_auc": 0.6142,
+      "grid": [
+        {
+          "params": {
+            "C": 0.01
+          },
+          "val_auc": 0.6136,
+          "val_brier": 0.2414,
+          "fit_seconds": 0.6
+        },
+        {
+          "params": {
+            "C": 0.03
+          },
+          "val_auc": 0.6142,
+          "val_brier": 0.2395,
+          "fit_seconds": 0.7
+        },
+        {
+          "params": {
+            "C": 0.1
+          },
+          "val_auc": 0.6137,
+          "val_brier": 0.2397,
+          "fit_seconds": 1.2
+        },
+        {
+          "params": {
+            "C": 0.3
+          },
+          "val_auc": 0.614,
+          "val_brier": 0.2395,
+          "fit_seconds": 4.9
+        },
+        {
+          "params": {
+            "C": 1.0
+          },
+          "val_auc": 0.6139,
+          "val_brier": 0.2395,
+          "fit_seconds": 9.2
+        }
+      ]
+    },
+    "Random forest": {
+      "n_configurations": 3,
+      "chosen": {
+        "min_samples_leaf": 20
+      },
+      "chosen_val_auc": 0.6523,
+      "grid": [
+        {
+          "params": {
+            "min_samples_leaf": 5
+          },
+          "val_auc": 0.6516,
+          "val_brier": 0.19,
+          "fit_seconds": 8.1
+        },
+        {
+          "params": {
+            "min_samples_leaf": 20
+          },
+          "val_auc": 0.6523,
+          "val_brier": 0.2153,
+          "fit_seconds": 8.1
+        },
+        {
+          "params": {
+            "min_samples_leaf": 50
+          },
+          "val_auc": 0.6478,
+          "val_brier": 0.2258,
+          "fit_seconds": 6.7
+        }
+      ]
+    },
+    "Gradient-boosted trees": {
+      "n_configurations": 18,
+      "chosen": {
+        "learning_rate": 0.03,
+        "max_depth": 6,
+        "min_samples_leaf": 100,
+        "l2_regularization": 1.0
+      },
+      "chosen_val_auc": 0.6538,
+      "grid": [
+        {
+          "params": {
+            "learning_rate": 0.03,
+            "max_depth": 3,
+            "min_samples_leaf": 20,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.6515,
+          "val_brier": 0.2285,
+          "fit_seconds": 2.9
+        },
+        {
+          "params": {
+            "learning_rate": 0.03,
+            "max_depth": 3,
+            "min_samples_leaf": 100,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.6521,
+          "val_brier": 0.2287,
+          "fit_seconds": 3.0
+        },
+        {
+          "params": {
+            "learning_rate": 0.03,
+            "max_depth": 4,
+            "min_samples_leaf": 20,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.6529,
+          "val_brier": 0.2269,
+          "fit_seconds": 2.7
+        },
+        {
+          "params": {
+            "learning_rate": 0.03,
+            "max_depth": 4,
+            "min_samples_leaf": 100,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.6518,
+          "val_brier": 0.2264,
+          "fit_seconds": 3.1
+        },
+        {
+          "params": {
+            "learning_rate": 0.03,
+            "max_depth": 6,
+            "min_samples_leaf": 20,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.651,
+          "val_brier": 0.2244,
+          "fit_seconds": 2.5
+        },
+        {
+          "params": {
+            "learning_rate": 0.03,
+            "max_depth": 6,
+            "min_samples_leaf": 100,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.6538,
+          "val_brier": 0.2236,
+          "fit_seconds": 2.0
+        },
+        {
+          "params": {
+            "learning_rate": 0.06,
+            "max_depth": 3,
+            "min_samples_leaf": 20,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.65,
+          "val_brier": 0.2297,
+          "fit_seconds": 0.7
+        },
+        {
+          "params": {
+            "learning_rate": 0.06,
+            "max_depth": 3,
+            "min_samples_leaf": 100,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.6493,
+          "val_brier": 0.228,
+          "fit_seconds": 1.1
+        },
+        {
+          "params": {
+            "learning_rate": 0.06,
+            "max_depth": 4,
+            "min_samples_leaf": 20,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.6512,
+          "val_brier": 0.2273,
+          "fit_seconds": 0.7
+        },
+        {
+          "params": {
+            "learning_rate": 0.06,
+            "max_depth": 4,
+            "min_samples_leaf": 100,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.6518,
+          "val_brier": 0.2269,
+          "fit_seconds": 0.9
+        },
+        {
+          "params": {
+            "learning_rate": 0.06,
+            "max_depth": 6,
+            "min_samples_leaf": 20,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.65,
+          "val_brier": 0.2237,
+          "fit_seconds": 1.0
+        },
+        {
+          "params": {
+            "learning_rate": 0.06,
+            "max_depth": 6,
+            "min_samples_leaf": 100,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.6516,
+          "val_brier": 0.2231,
+          "fit_seconds": 1.1
+        },
+        {
+          "params": {
+            "learning_rate": 0.1,
+            "max_depth": 3,
+            "min_samples_leaf": 20,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.6517,
+          "val_brier": 0.2291,
+          "fit_seconds": 0.5
+        },
+        {
+          "params": {
+            "learning_rate": 0.1,
+            "max_depth": 3,
+            "min_samples_leaf": 100,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.6507,
+          "val_brier": 0.2292,
+          "fit_seconds": 0.5
+        },
+        {
+          "params": {
+            "learning_rate": 0.1,
+            "max_depth": 4,
+            "min_samples_leaf": 20,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.6516,
+          "val_brier": 0.2253,
+          "fit_seconds": 0.7
+        },
+        {
+          "params": {
+            "learning_rate": 0.1,
+            "max_depth": 4,
+            "min_samples_leaf": 100,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.6514,
+          "val_brier": 0.226,
+          "fit_seconds": 0.7
+        },
+        {
+          "params": {
+            "learning_rate": 0.1,
+            "max_depth": 6,
+            "min_samples_leaf": 20,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.653,
+          "val_brier": 0.2224,
+          "fit_seconds": 0.7
+        },
+        {
+          "params": {
+            "learning_rate": 0.1,
+            "max_depth": 6,
+            "min_samples_leaf": 100,
+            "l2_regularization": 1.0
+          },
+          "val_auc": 0.6472,
+          "val_brier": 0.2233,
+          "fit_seconds": 0.9
+        }
+      ]
+    },
+    "Neural network (MLP)": {
+      "n_configurations": 6,
+      "chosen": {
+        "hidden_layer_sizes": [
+          128,
+          64
+        ],
+        "alpha": 0.01
+      },
+      "chosen_val_auc": 0.6268,
+      "grid": [
+        {
+          "params": {
+            "hidden_layer_sizes": [
+              64,
+              32
+            ],
+            "alpha": 0.0001
+          },
+          "val_auc": 0.5989,
+          "val_brier": 0.1672,
+          "fit_seconds": 2.0
+        },
+        {
+          "params": {
+            "hidden_layer_sizes": [
+              64,
+              32
+            ],
+            "alpha": 0.001
+          },
+          "val_auc": 0.599,
+          "val_brier": 0.1672,
+          "fit_seconds": 1.9
+        },
+        {
+          "params": {
+            "hidden_layer_sizes": [
+              64,
+              32
+            ],
+            "alpha": 0.01
+          },
+          "val_auc": 0.5988,
+          "val_brier": 0.1672,
+          "fit_seconds": 2.1
+        },
+        {
+          "params": {
+            "hidden_layer_sizes": [
+              128,
+              64
+            ],
+            "alpha": 0.0001
+          },
+          "val_auc": 0.6259,
+          "val_brier": 0.1644,
+          "fit_seconds": 3.5
+        },
+        {
+          "params": {
+            "hidden_layer_sizes": [
+              128,
+              64
+            ],
+            "alpha": 0.001
+          },
+          "val_auc": 0.6264,
+          "val_brier": 0.1644,
+          "fit_seconds": 3.5
+        },
+        {
+          "params": {
+            "hidden_layer_sizes": [
+              128,
+              64
+            ],
+            "alpha": 0.01
+          },
+          "val_auc": 0.6268,
+          "val_brier": 0.1643,
+          "fit_seconds": 3.5
+        }
+      ]
+    }
+  },
+  "performance": [
+    {
+      "model": "No-information rate (majority class)",
+      "features": "None",
+      "train_auc": 0.5,
+      "val_auc": 0.5,
+      "test_auc": 0.5,
+      "train_accuracy": 0.7929,
+      "test_accuracy": 0.7477,
+      "test_brier": 0.1907
+    },
+    {
+      "model": "L1-penalised logistic regression",
+      "features": "All four blocks (46 predictors)",
+      "params": {
+        "C": 0.03
+      },
+      "train_auc": 0.631,
+      "val_auc": 0.6142,
+      "test_auc": 0.6185,
+      "threshold_from_validation": 0.5131,
+      "train_accuracy": 0.6189,
+      "test_accuracy": 0.6032,
+      "train_balanced_accuracy": 0.5938,
+      "test_balanced_accuracy": 0.5934,
+      "test_sensitivity": 0.5737,
+      "test_specificity": 0.6132,
+      "test_precision": 0.3336,
+      "test_f1": 0.4219,
+      "test_flagged_share": 0.434,
+      "test_confusion": {
+        "tp": 1841,
+        "fp": 3678,
+        "tn": 5830,
+        "fn": 1368
+      },
+      "test_brier_raw": 0.2427,
+      "calibration_offset_from_validation": -1.2804,
+      "test_brier_recalibrated": 0.1838,
+      "test_mean_predicted_recalibrated": 0.2234,
+      "fit_seconds_full_training": 0.6,
+      "test_auc_ci95": [
+        0.6079,
+        0.6301
+      ],
+      "gap_to_best": {
+        "delta": 0.0504,
+        "ci95": [
+          0.0417,
+          0.0594
+        ],
+        "p_two_sided": 0.0
+      }
+    },
+    {
+      "model": "Random forest",
+      "features": "All four blocks (46 predictors)",
+      "params": {
+        "min_samples_leaf": 20
+      },
+      "train_auc": 0.8105,
+      "val_auc": 0.6523,
+      "test_auc": 0.6708,
+      "threshold_from_validation": 0.451,
+      "train_accuracy": 0.6568,
+      "test_accuracy": 0.5747,
+      "train_balanced_accuracy": 0.7267,
+      "test_balanced_accuracy": 0.6167,
+      "test_sensitivity": 0.7015,
+      "test_specificity": 0.5319,
+      "test_precision": 0.3359,
+      "test_f1": 0.4542,
+      "test_flagged_share": 0.527,
+      "test_confusion": {
+        "tp": 2251,
+        "fp": 4451,
+        "tn": 5057,
+        "fn": 958
+      },
+      "test_brier_raw": 0.2164,
+      "calibration_offset_from_validation": -1.1349,
+      "test_brier_recalibrated": 0.1758,
+      "test_mean_predicted_recalibrated": 0.2222,
+      "fit_seconds_full_training": 7.8,
+      "test_auc_ci95": [
+        0.6603,
+        0.6815
+      ],
+      "gap_to_best": {
+        "delta": -0.0021,
+        "ci95": [
+          -0.0071,
+          0.003
+        ],
+        "p_two_sided": 0.432
+      }
+    },
+    {
+      "model": "Gradient-boosted trees",
+      "features": "All four blocks (46 predictors)",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 6,
+        "min_samples_leaf": 100,
+        "l2_regularization": 1.0
+      },
+      "train_auc": 0.7458,
+      "val_auc": 0.6538,
+      "test_auc": 0.6687,
+      "threshold_from_validation": 0.4946,
+      "train_accuracy": 0.6579,
+      "test_accuracy": 0.6163,
+      "train_balanced_accuracy": 0.6751,
+      "test_balanced_accuracy": 0.6189,
+      "test_sensitivity": 0.6242,
+      "test_specificity": 0.6137,
+      "test_precision": 0.3529,
+      "test_f1": 0.4509,
+      "test_flagged_share": 0.4463,
+      "test_confusion": {
+        "tp": 2003,
+        "fp": 3673,
+        "tn": 5835,
+        "fn": 1206
+      },
+      "test_brier_raw": 0.2219,
+      "calibration_offset_from_validation": -1.221,
+      "test_brier_recalibrated": 0.1741,
+      "test_mean_predicted_recalibrated": 0.2211,
+      "fit_seconds_full_training": 3.0,
+      "test_auc_ci95": [
+        0.6578,
+        0.6797
+      ]
+    },
+    {
+      "model": "Neural network (MLP)",
+      "features": "All four blocks (46 predictors)",
+      "params": {
+        "hidden_layer_sizes": [
+          128,
+          64
+        ],
+        "alpha": 0.01
+      },
+      "train_auc": 0.6898,
+      "val_auc": 0.6268,
+      "test_auc": 0.6308,
+      "threshold_from_validation": 0.1945,
+      "train_accuracy": 0.5574,
+      "test_accuracy": 0.539,
+      "train_balanced_accuracy": 0.6329,
+      "test_balanced_accuracy": 0.5929,
+      "test_sensitivity": 0.7018,
+      "test_specificity": 0.484,
+      "test_precision": 0.3146,
+      "test_f1": 0.4345,
+      "test_flagged_share": 0.5629,
+      "test_confusion": {
+        "tp": 2252,
+        "fp": 4906,
+        "tn": 4602,
+        "fn": 957
+      },
+      "test_brier_raw": 0.1823,
+      "calibration_offset_from_validation": 0.0653,
+      "test_brier_recalibrated": 0.1818,
+      "test_mean_predicted_recalibrated": 0.2301,
+      "fit_seconds_full_training": 6.3,
+      "test_auc_ci95": [
+        0.6206,
+        0.6416
+      ],
+      "gap_to_best": {
+        "delta": 0.0378,
+        "ci95": [
+          0.0293,
+          0.0466
+        ],
+        "p_two_sided": 0.0
+      }
+    }
+  ],
+  "best_model": {
+    "family": "Gradient-boosted trees",
+    "chosen_by": "highest validation AUC (2014-2015)",
+    "params": {
+      "learning_rate": 0.03,
+      "max_depth": 6,
+      "min_samples_leaf": 100,
+      "l2_regularization": 1.0
+    }
+  },
+  "ip_increment_tuned": {
+    "auc_without_ip": 0.6671,
+    "auc_with_ip": 0.6687,
+    "delta": 0.0017,
+    "ci95": [
+      -0.0027,
+      0.006
+    ],
+    "p_two_sided": 0.458,
+    "bootstrap_correlation_of_aucs": 0.9166
+  },
+  "best_calibration": {
+    "offset_from_validation": -1.221,
+    "raw": {
+      "slope": 1.0383,
+      "intercept": -1.0364,
+      "mean_predicted": 0.4658,
+      "brier": 0.2219
+    },
+    "recalibrated": {
+      "slope": 1.0383,
+      "intercept": 0.2313,
+      "mean_predicted": 0.2211,
+      "brier": 0.1741
+    },
+    "observed_rate": 0.2523,
+    "no_information_brier": 0.1907,
+    "threshold_raw_scale": 0.4946,
+    "threshold_recalibrated_scale": 0.224
+  },
+  "risk_deciles": [
+    {
+      "decile": 10,
+      "n": 1272,
+      "terminated": 645,
+      "observed": 0.5071,
+      "predicted": 0.4343,
+      "lift": 2.009,
+      "cumulative_capture": 0.201
+    },
+    {
+      "decile": 9,
+      "n": 1272,
+      "terminated": 471,
+      "observed": 0.3703,
+      "predicted": 0.3232,
+      "lift": 1.467,
+      "cumulative_capture": 0.3478
+    },
+    {
+      "decile": 8,
+      "n": 1271,
+      "terminated": 379,
+      "observed": 0.2982,
+      "predicted": 0.2823,
+      "lift": 1.182,
+      "cumulative_capture": 0.4659
+    },
+    {
+      "decile": 7,
+      "n": 1272,
+      "terminated": 365,
+      "observed": 0.2869,
+      "predicted": 0.2503,
+      "lift": 1.137,
+      "cumulative_capture": 0.5796
+    },
+    {
+      "decile": 6,
+      "n": 1271,
+      "terminated": 299,
+      "observed": 0.2352,
+      "predicted": 0.2233,
+      "lift": 0.932,
+      "cumulative_capture": 0.6728
+    },
+    {
+      "decile": 5,
+      "n": 1272,
+      "terminated": 289,
+      "observed": 0.2272,
+      "predicted": 0.1981,
+      "lift": 0.9,
+      "cumulative_capture": 0.7629
+    },
+    {
+      "decile": 4,
+      "n": 1272,
+      "terminated": 243,
+      "observed": 0.191,
+      "predicted": 0.1728,
+      "lift": 0.757,
+      "cumulative_capture": 0.8386
+    },
+    {
+      "decile": 3,
+      "n": 1271,
+      "terminated": 210,
+      "observed": 0.1652,
+      "predicted": 0.1469,
+      "lift": 0.655,
+      "cumulative_capture": 0.904
+    },
+    {
+      "decile": 2,
+      "n": 1272,
+      "terminated": 180,
+      "observed": 0.1415,
+      "predicted": 0.1164,
+      "lift": 0.561,
+      "cumulative_capture": 0.9601
+    },
+    {
+      "decile": 1,
+      "n": 1272,
+      "terminated": 128,
+      "observed": 0.1006,
+      "predicted": 0.0633,
+      "lift": 0.399,
+      "cumulative_capture": 1.0
+    }
+  ],
+  "risk_concentration": {
+    "test_base_rate": 0.2523,
+    "top_decile_rate": 0.5071,
+    "top_decile_lift": 2.009,
+    "top_quintile_rate": 0.4387,
+    "top_quintile_capture": 0.3478,
+    "bottom_decile_rate": 0.1006
+  },
+  "shap": {
+    "explainer": "TreeExplainer on the tuned gradient-boosted model, held-out 2016-2019 trials",
+    "top": [
+      {
+        "feature": "n_locations",
+        "block": "Design",
+        "mean_abs_shap": 0.2263
+      },
+      {
+        "feature": "sponsor_prior_completion_rate",
+        "block": "Sponsor",
+        "mean_abs_shap": 0.1795
+      },
+      {
+        "feature": "elig_criteria_lines",
+        "block": "Design",
+        "mean_abs_shap": 0.129
+      },
+      {
+        "feature": "who_masked_n",
+        "block": "Design",
+        "mean_abs_shap": 0.1261
+      },
+      {
+        "feature": "is_phase3",
+        "block": "Design",
+        "mean_abs_shap": 0.0855
+      },
+      {
+        "feature": "n_secondary_outcomes",
+        "block": "Design",
+        "mean_abs_shap": 0.0826
+      },
+      {
+        "feature": "n_primary_outcomes",
+        "block": "Design",
+        "mean_abs_shap": 0.0788
+      },
+      {
+        "feature": "fda_has_orphan",
+        "block": "Regulatory",
+        "mean_abs_shap": 0.0673
+      },
+      {
+        "feature": "n_arms",
+        "block": "Design",
+        "mean_abs_shap": 0.0637
+      },
+      {
+        "feature": "assignee_portfolio_size",
+        "block": "Patent (sponsor)",
+        "mean_abs_shap": 0.0569
+      },
+      {
+        "feature": "n_countries",
+        "block": "Design",
+        "mean_abs_shap": 0.0468
+      },
+      {
+        "feature": "fda_n_efficacy_suppl",
+        "block": "Regulatory",
+        "mean_abs_shap": 0.0419
+      },
+      {
+        "feature": "sponsor_prior_trials",
+        "block": "Sponsor",
+        "mean_abs_shap": 0.0398
+      },
+      {
+        "feature": "assignee_pharma_share",
+        "block": "Patent (sponsor)",
+        "mean_abs_shap": 0.039
+      },
+      {
+        "feature": "n_interventions",
+        "block": "Design",
+        "mean_abs_shap": 0.0311
+      }
+    ],
+    "share_by_block": {
+      "Biosimilar": 0.0089,
+      "Design": 0.5839,
+      "Patent (drug)": 0.092,
+      "Patent (sponsor)": 0.0629,
+      "Regulatory": 0.0831,
+      "Sponsor": 0.1692
+    },
+    "rank": {
+      "n_locations": 1,
+      "sponsor_prior_completion_rate": 2,
+      "elig_criteria_lines": 3,
+      "who_masked_n": 4,
+      "is_phase3": 5,
+      "n_secondary_outcomes": 6,
+      "n_primary_outcomes": 7,
+      "fda_has_orphan": 8,
+      "n_arms": 9,
+      "assignee_portfolio_size": 10,
+      "n_countries": 11,
+      "fda_n_efficacy_suppl": 12,
+      "sponsor_prior_trials": 13,
+      "assignee_pharma_share": 14,
+      "n_interventions": 15,
+      "n_collaborators": 16,
+      "family_size": 17,
+      "ob_patent_span_years": 18,
+      "family_n_countries": 19,
+      "pb_n_competing_biosimilars": 20,
+      "ob_n_patents": 21,
+      "fda_is_nme": 22,
+      "inventors_per_patent": 23,
+      "backward_citations_per_patent": 24,
+      "cpc_codes_per_patent": 25,
+      "years_priority_to_grant": 26,
+      "citations_per_patent": 27,
+      "ob_evergreen_ratio": 28,
+      "is_phase1_2": 29,
+      "is_phase2_3": 30,
+      "is_industry": 31,
+      "fda_any_priority": 32,
+      "sponsor_is_other_gov": 33,
+      "ob_n_secondary_patents": 34,
+      "assignees_per_patent": 35,
+      "is_biologic": 36,
+      "ob_n_exclusivities": 37,
+      "is_randomized": 38,
+      "ob_n_primary_patents": 39,
+      "sponsor_is_network": 40,
+      "sponsor_is_nih": 41,
+      "is_multinational": 42,
+      "sponsor_is_fed": 43,
+      "pb_is_biosimilar": 44,
+      "pb_is_interchangeable": 45,
+      "pb_is_originator": 46
+    }
+  },
+  "example": {
+    "nct_id": "NCT03038477",
+    "start_year": 2017,
+    "phases": "PHASE2",
+    "lead_sponsor_class": "OTHER",
+    "therapeutic_area": "Oncology",
+    "n_locations": 1.0,
+    "n_countries": 1.0,
+    "elig_criteria_lines": 59.0,
+    "sponsor_prior_trials": 74.0,
+    "sponsor_prior_completion_rate": 0.625,
+    "risk_recalibrated": 0.3939,
+    "risk_percentile": 95,
+    "decile": 10,
+    "actual_status": "WITHDRAWN",
+    "why_stopped": "Cancelled by PI",
+    "top_drivers": [
+      {
+        "feature": "sponsor_prior_completion_rate",
+        "value": 0.625,
+        "shap": 0.3158
+      },
+      {
+        "feature": "n_locations",
+        "value": 1.0,
+        "shap": 0.2607
+      },
+      {
+        "feature": "elig_criteria_lines",
+        "value": 59.0,
+        "shap": 0.1532
+      },
+      {
+        "feature": "who_masked_n",
+        "value": 0.0,
+        "shap": 0.1224
+      },
+      {
+        "feature": "pb_n_competing_biosimilars",
+        "value": 0.0,
+        "shap": -0.0694
+      }
+    ]
+  },
+  "store_inventory": [
+    {
+      "table": "ctgov_trials.parquet",
+      "rows": 106311,
+      "columns": 50,
+      "mb": 8.45,
+      "keys": [
+        "nct_id",
+        "lead_sponsor"
+      ]
+    },
+    {
+      "table": "drugsatfda_regulatory.parquet",
+      "rows": 29351,
+      "columns": 18,
+      "mb": 0.7,
+      "keys": [
+        "appl_no"
+      ]
+    },
+    {
+      "table": "faers_drug_burden.parquet",
+      "rows": 13868,
+      "columns": 8,
+      "mb": 0.4,
+      "keys": [
+        "ingredient"
+      ]
+    },
+    {
+      "table": "faers_group_burden.parquet",
+      "rows": 4075,
+      "columns": 6,
+      "mb": 0.11,
+      "keys": [
+        "corporate_group"
+      ]
+    },
+    {
+      "table": "faers_sponsor_burden.parquet",
+      "rows": 4276,
+      "columns": 6,
+      "mb": 0.12,
+      "keys": [
+        "lead_sponsor"
+      ]
+    },
+    {
+      "table": "genetic_support.parquet",
+      "rows": 24611,
+      "columns": 6,
+      "mb": 0.24,
+      "keys": [
+        "nct_id"
+      ]
+    },
+    {
+      "table": "ip_index.parquet",
+      "rows": 106311,
+      "columns": 24,
+      "mb": 0.96,
+      "keys": [
+        "nct_id"
+      ]
+    },
+    {
+      "table": "medicaid_product_year.parquet",
+      "rows": 285308,
+      "columns": 10,
+      "mb": 7.3,
+      "keys": []
+    },
+    {
+      "table": "orangebook_ip.parquet",
+      "rows": 27428,
+      "columns": 25,
+      "mb": 0.49,
+      "keys": [
+        "appl_no"
+      ]
+    },
+    {
+      "table": "orangebook_patent_appl_map.parquet",
+      "rows": 8861,
+      "columns": 2,
+      "mb": 0.06,
+      "keys": [
+        "appl_no"
+      ]
+    },
+    {
+      "table": "purplebook_biologics.parquet",
+      "rows": 2271,
+      "columns": 33,
+      "mb": 0.1,
+      "keys": []
+    },
+    {
+      "table": "sponsor_assignee_map.parquet",
+      "rows": 106311,
+      "columns": 8,
+      "mb": 1.63,
+      "keys": [
+        "nct_id",
+        "corporate_group",
+        "lead_sponsor"
+      ]
+    },
+    {
+      "table": "sponsor_ip_features.parquet",
+      "rows": 106311,
+      "columns": 19,
+      "mb": 1.08,
+      "keys": [
+        "nct_id",
+        "corporate_group"
+      ]
+    },
+    {
+      "table": "trial_drug_resolution.parquet",
+      "rows": 39437,
+      "columns": 9,
+      "mb": 0.98,
+      "keys": [
+        "nct_id",
+        "appl_no",
+        "ingredient"
+      ]
+    }
+  ],
+  "environment": {
+    "python": "3.9.6",
+    "platform": "macOS-14.8.4-x86_64-i386-64bit",
+    "processor": "Intel Core i5-4278U, 2.6 GHz, 2 cores / 4 threads",
+    "memory_gb": 8,
+    "gpu": "none (all training on CPU)",
+    "cpu_count": 4
+  },
+  "artefact": {
+    "path": "models/termination_model.joblib",
+    "mb": 0.25
+  }
+}
