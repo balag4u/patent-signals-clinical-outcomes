@@ -1,0 +1,178 @@
+{
+  "alpha": 0.05,
+  "power": 0.8,
+  "z_alpha_2": 1.959964,
+  "z_beta": 0.841621,
+  "z_sum_sq": 7.848879,
+  "p_terminated": 0.2217,
+  "p_completed": 0.7783,
+  "pq": 0.172549,
+  "rq1": {
+    "method": "two independent proportions, Cohen's h, with design effect for clustering",
+    "p1": 0.2217,
+    "p2": 0.2717,
+    "delta": 0.05,
+    "relative_change": 0.2255,
+    "phi1": 0.980509,
+    "phi2": 1.096627,
+    "h": 0.116118,
+    "n_per_group_unclustered_raw": 1164.23,
+    "n_per_group_unclustered": 1165,
+    "n_total_unclustered": 2330,
+    "icc": 0.0445,
+    "m0": 72.9,
+    "design_effect": 4.1996,
+    "n_per_group": 4893,
+    "n_total": 9786,
+    "available_per_group": 6356,
+    "available_total": 12712,
+    "n_clusters_available": 170
+  },
+  "rq2": {
+    "method": "power for the paired difference of two correlated AUCs (H2b)",
+    "auc_reference": 0.65,
+    "auc_alternative": 0.66,
+    "delta_auc": 0.01,
+    "rho": 0.95,
+    "k_nonevents_per_event": 3.5106,
+    "q1_ref": 0.481481,
+    "q2_ref": 0.512121,
+    "q1_alt": 0.492537,
+    "q2_alt": 0.524819,
+    "per_event_var_ref": 0.106422,
+    "per_event_var_alt": 0.105438,
+    "per_event_var_diff": 0.010595,
+    "events_raw": 831.6,
+    "events": 832,
+    "n_total": 3753,
+    "check_h2a_auc_vs_chance": {
+      "auc_null": 0.5,
+      "auc_alt": 0.65,
+      "per_event_var_null": 0.107071,
+      "events": 38,
+      "n_total": 172
+    },
+    "check_ci_precision": {
+      "half_width": 0.025,
+      "events": 655,
+      "n_total": 2955
+    },
+    "rho_sensitivity": {
+      "0.9": {
+        "events": 1664,
+        "n_total": 7506
+      },
+      "0.95": {
+        "events": 832,
+        "n_total": 3753
+      }
+    },
+    "applies_to": "the held-out evaluation set, where H2a and H2b are tested",
+    "available_test_n": 12717,
+    "available_test_events": 3209,
+    "training_events_per_candidate_predictor": 110.7
+  },
+  "rq3": {
+    "method": "Schoenfeld events for each cause, converted by that cause's probability",
+    "hr": 1.25,
+    "ln_hr_sq": 0.049793,
+    "allocation": 0.5,
+    "events_raw": 630.52,
+    "events": 631,
+    "n_completion": 811,
+    "n_termination": 2847,
+    "n_total": 2847,
+    "binding_cause": "termination",
+    "available_n": 12658,
+    "available_completion_events": 10425,
+    "available_termination_events": 2233
+  },
+  "rq4": {
+    "method": "CI precision per stratum, and power for a difference in risk differences",
+    "precision": {
+      "margin": 0.03,
+      "z_sq": 3.841459,
+      "n_per_stratum_raw": 736.49,
+      "n_per_stratum": 737,
+      "strata": 6,
+      "n_total": 4422
+    },
+    "interaction": {
+      "delta_rd": 0.1,
+      "n_per_cell_raw": 541.73,
+      "n_per_cell": 542,
+      "n_per_stratum": 1084,
+      "n_total": 6504
+    },
+    "n_total": 6504,
+    "available_n": 12712,
+    "cells": [
+      {
+        "area": "Cardiovascular",
+        "n_strong": 251,
+        "n_weak": 364,
+        "terminated_strong": 46,
+        "terminated_weak": 68,
+        "p_strong": 0.1833,
+        "p_weak": 0.1868
+      },
+      {
+        "area": "Infectious Disease",
+        "n_strong": 383,
+        "n_weak": 556,
+        "terminated_strong": 46,
+        "terminated_weak": 81,
+        "p_strong": 0.1201,
+        "p_weak": 0.1457
+      },
+      {
+        "area": "Metabolic & Endocrine",
+        "n_strong": 755,
+        "n_weak": 607,
+        "terminated_strong": 85,
+        "terminated_weak": 58,
+        "p_strong": 0.1126,
+        "p_weak": 0.0956
+      },
+      {
+        "area": "Neurology & Psychiatry",
+        "n_strong": 998,
+        "n_weak": 932,
+        "terminated_strong": 209,
+        "terminated_weak": 221,
+        "p_strong": 0.2094,
+        "p_weak": 0.2371
+      },
+      {
+        "area": "Oncology",
+        "n_strong": 1346,
+        "n_weak": 1280,
+        "terminated_strong": 353,
+        "terminated_weak": 292,
+        "p_strong": 0.2623,
+        "p_weak": 0.2281
+      },
+      {
+        "area": "Other",
+        "n_strong": 2623,
+        "n_weak": 2617,
+        "terminated_strong": 393,
+        "terminated_weak": 419,
+        "p_strong": 0.1498,
+        "p_weak": 0.1601
+      }
+    ],
+    "strata_below_cell_requirement": [
+      "Cardiovascular",
+      "Infectious Disease"
+    ]
+  },
+  "required": {
+    "RQ1": 9786,
+    "RQ2": 3753,
+    "RQ3": 2847,
+    "RQ4": 6504
+  },
+  "final_n": 9786,
+  "binding": "RQ1"
+}
