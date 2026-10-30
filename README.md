@@ -44,7 +44,8 @@ just observing what patients already take.
 
 - **39,437 trials** in the study, drawn from 106,311 retrieved
 - **22.2%** of them were terminated
-- The sample size calculation called for 4,422; see `docs/PROJECT_GUIDE.md`
+- The sample size calculation calls for 9,786 usable trials once trials are
+  allowed to cluster within sponsors; see `docs/PROJECT_GUIDE.md`
 
 ## Running it yourself
 
@@ -55,12 +56,28 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-lock.txt
 
 # every input the analysis needs is already committed - nothing to download
-python scripts/analysis/interim_eda.py
+python scripts/analysis/final_analysis.py   # runs interim_eda.py first
+python scripts/analysis/sample_size.py
 ```
 
-That command rebuilds every figure and statistic in the report and rewrites
-`docs/interim_results.json`. It takes about three minutes on a laptop, needs no
-passwords and no internet connection.
+`final_analysis.py` runs `interim_eda.py` and then the final-stage models, so
+these two commands rebuild every figure and statistic in the reports and
+rewrite the three files the reports are generated from:
+`docs/interim_results.json`, `docs/final_results.json` and
+`docs/sample_size.json`. They take about seven minutes on a four-thread laptop
+processor, with no graphics card, no passwords and no internet connection.
+Running `interim_eda.py` on its own, in about three minutes, rebuilds the
+interim-stage results only.
+
+To score trials with the saved model:
+
+```bash
+python scripts/deploy/score_trials.py INPUT.parquet OUTPUT.csv
+```
+
+The input needs the model's predictor columns, built exactly as
+`interim_eda.py` builds them. The output gives each trial a calibrated risk, a
+risk decile, a review flag, and the three predictors that moved its score most.
 
 `requirements-lock.txt` pins the exact package versions the reported numbers
 were produced with. `requirements.txt` gives the looser ranges that also work.
@@ -72,10 +89,12 @@ were produced with. `requirements.txt` gives the looser ranges that also work.
 | `data/analysis_ready/` | The prepared tables, 14 of them, 22 MB. **This is everything the analysis needs** |
 | `data/patents/` | Results downloaded from Google BigQuery, plus the checked list of which patent owner belongs to which company |
 | `data/validation/` | A 200-link sample checked by hand, used to measure how accurate the drug matching is |
-| `scripts/prep/` | Thirteen scripts that turn raw downloads into the prepared tables |
-| `scripts/analysis/` | Sample size calculation, the hand-checking tools, and the main analysis |
+| `scripts/prep/` | Sixteen scripts that turn raw downloads into the prepared tables |
+| `scripts/analysis/` | Sample size calculation, the hand-checking tools, the interim analysis (`interim_eda.py`) and the final-stage models (`final_analysis.py`) |
+| `scripts/deploy/` | `score_trials.py`, which scores new trials with the saved model |
+| `models/` | The selected model with its recalibration offset, decision threshold and reference risk bands, 0.25 MB |
 | `sql/` | The BigQuery queries that fetch patent data, with a cost guide |
-| `docs/` | Written explanations, the data dictionary, and the figures |
+| `docs/` | Written explanations, the data dictionary, the figures, and the three results files every reported number comes from |
 
 **Raw source files are not stored here** (about 15 GB). Every one can be
 downloaded again from the addresses in `docs/DATA_SOURCES.md`, and the scripts
@@ -89,6 +108,8 @@ prep_01_ctgov.py             raw records              ->  ctgov_trials
 prep_02_orangebook.py        FDA Orange Book          ->  drug patents and exclusivity
 prep_03_drugsatfda.py        Drugs@FDA                ->  regulatory pathway
 prep_04_faers.py             FDA adverse events       ->  safety signals
+prep_04b_faers_recompute.py  saved 2x2 counts         ->  corrected safety signals
+prep_04c_sponsor_safety.py   trial -> ingredient      ->  sponsor safety burden
 prep_05_medicaid.py          Medicaid spending        ->  product-year usage
 prep_06_mesh_areas.py        disease classification   ->  therapeutic areas
 prep_07_purplebook.py        FDA Purple Book          ->  biologic products
@@ -102,7 +123,8 @@ prep_14_genetic_support.py   drug, gene, evidence     ->  per-trial genetic supp
 ```
 
 Steps 02 to 09 are independent of each other and can run in any order after 01.
-Steps 10 to 13 depend on 02, 03 and 08.
+Steps 10 to 13 depend on 02, 03 and 08. Step 04b follows 04, and 04c needs 04b,
+08 and 10. The safety tables are kept as context: they are not model inputs.
 
 ---
 
@@ -161,19 +183,20 @@ if it works on trials it has not seen, in a period it was not trained on.
 
 | What the model is given | AUC |
 |---|---|
-| Trial design only | 0.636 |
-| plus sponsor track record | **0.657** |
-| plus regulatory pathway | 0.661 |
+| Trial design only | 0.637 |
+| plus sponsor track record | **0.659** |
+| plus regulatory pathway | 0.662 |
 | plus patents | 0.664 |
 
 **The number of sites a trial registers is the strongest single predictor**,
-followed by the sponsor's past completion rate. Patent measures rank in the
-lower half of 31 features.
+followed by the sponsor's past completion rate and the length of the
+eligibility criteria. The highest-placed patent measure, the sponsor's
+portfolio size, ranks eleventh of 46 features.
 
-Adding the company-level patent block moves AUC by **-0.0002, p = 0.93**. A
-p-value that high means a difference this size is exactly what random noise
-produces. Adding the drug-level and company-level blocks together moves it
-+0.0027, p = 0.22, which is still not distinguishable from chance.
+Adding the company-level patent block moves AUC by **+0.0018, p = 0.24**, and
+adding every patent block together moves it +0.0019, p = 0.39. Neither
+interval excludes zero, so neither change can be told apart from random noise.
+Only the sponsor's track record adds a clear gain, +0.0218.
 
 ### Why an approval-based measure appeared to show an effect
 
@@ -189,9 +212,9 @@ comparison is winners against winners.
 Judging a group by looking only at its survivors is called **survivorship
 bias**. The company-level measure needs no approval, because a company's patent
 portfolio exists whether or not any particular drug reaches the market. On that
-measure the gap is **+0.11 percentage points, p = 0.90** once the fact that
-trials of the same drug are not independent pieces of evidence is accounted
-for, which is no effect at all.
+measure the gap is **-0.11 percentage points, p = 0.95**, once the fact that
+trials run by the same sponsor are not independent pieces of evidence is
+accounted for, which is no effect at all.
 
 This is why the study was designed with a company-level measure from the start.
 
@@ -289,7 +312,8 @@ narrowed. Together these removed about 320 false attributions.
 
 **This made the null cleaner, not weaker.** The gap between strongly and weakly
 protected sponsors fell from 0.79 percentage points to 0.11, and the p-value
-rose from 0.36 to 0.90. The small apparent gap was partly an artefact of
+rose from 0.36 to 0.90, with standard errors at that stage clustered on the
+FDA application rather than the sponsor. The small apparent gap was partly an artefact of
 crediting universities with pharmaceutical companies' patents. A wrong value is
 worse than a missing one: it puts a real number on the wrong trial, where a
 missing value is simply left out of the test.
@@ -298,9 +322,11 @@ missing value is simply left out of the test.
 free of its one known directional bias, the answer is the same each time, and
 the rival signal the literature rates most highly does not predict this outcome
 either.
-The remaining estimate of the difference in stop rates is 0.11 percentage
-points with a confidence interval from -1.44 to +1.22, against a sample able to
-detect 1.90 points. The estimate also sits on either side of zero depending on
+The remaining estimate of the difference in stop rates is -0.11 percentage
+points. Once trials are clustered within their 170 sponsor groups, its 95%
+confidence interval runs from -3.54 to +3.32, and the smallest difference the
+comparison could detect four times in five is 4.9 points. A five-point effect,
+the size the study was designed to find, is ruled out; a smaller one is not. The estimate also sits on either side of zero depending on
 which companies are measured, while staying equally far from significance,
 which is how an estimate behaves when the quantity it estimates is zero.
 
@@ -312,13 +338,58 @@ the reading most consistent with the evidence: early termination looks
 operational rather than scientific or commercial.
 
 **What this does not rule out.** Patent strength is measured here from portfolio
-size, pharmaceutical focus and remaining term. A sponsor-level measure of patent
+size and pharmaceutical focus. A sponsor-level measure of patent
 quality and geographic breadth is not yet built, 35.6% of industry trials still
 have no measurable sponsor portfolio, and the two sharper measures named above,
 patent breadth read from the claim text and genetic evidence matched to the
 trial's own disease, are not yet done. Each is the tighter form of a measure
 that produced a null in its looser form, so each could still change the
 answer.
+
+## Final-stage results
+
+`scripts/analysis/final_analysis.py` adds the stage the final report rests on.
+Every model setting is chosen on trials that started in 2014-2015, using models
+trained on 2008-2013; the chosen settings are refitted on 2008-2015, and the
+12,717 trials that started in 2016-2019 are scored **once**. The decision
+threshold and the probability correction are also fixed on 2014-2015, so no
+test result informs any choice.
+
+| Model | AUC on its training data | AUC on the test years |
+|---|---|---|
+| Gradient-boosted trees (**selected**) | 0.746 | **0.669** (95% CI 0.658 to 0.680) |
+| Random forest | 0.810 | 0.671 |
+| Neural network (multilayer perceptron) | 0.690 | 0.631 |
+| Penalised logistic regression | 0.631 | 0.619 |
+
+The random forest scores 0.002 higher on the test years, which is not a real
+difference (p = 0.43). The boosted model was selected by the rule fixed in
+advance, the best score on 2014-2015, and it is also better calibrated and less
+over-fitted.
+
+- **Risk is concentrated.** Trials in the model's highest risk tenth were
+  stopped 50.7% of the time, twice the test-period rate of 25.2%, and the top
+  fifth contains 34.8% of all terminations.
+- **Probabilities need correcting.** Training gives extra weight to stopped
+  trials, which inflates every raw probability. One offset fixed on 2014-2015
+  brings the Brier score, the average squared error of the predicted
+  probability, from 0.222 to 0.174, below the 0.191 of a forecast that ignores
+  the trial entirely.
+- **Patents still add nothing.** In the tuned model the patent block moves AUC
+  by +0.0017, 95% CI -0.0027 to +0.0060, p = 0.46.
+- **Time to completion and disease area agree.** A Fine-Gray competing-risks
+  model gives a completion ratio of 1.026 (95% CI 0.914 to 1.151) for strongly
+  against weakly protected sponsors, and the test of whether the patent effect
+  differs by disease area gives p = 0.35.
+
+**Two corrections made at this stage.** First, every test on the sponsor patent
+measure now allows for trials run by the same sponsor being related, by
+clustering on the sponsor's corporate group; earlier versions clustered on the
+FDA application, which is the right unit for the drug-level measure but not for
+this one. The estimates did not move, but their intervals widened about 2.6
+times. Second, the RQ1 sample size had used the one-group form of the formula,
+which halves the requirement. Corrected, and allowing for clustering, the study
+needs 9,786 usable trials; `docs/PROJECT_GUIDE.md` sets out every step.
 
 ## How patent strength is defined
 
@@ -348,9 +419,12 @@ Why these choices:
 - **Missing is not weak.** A trial whose sponsor cannot be measured is
   unmeasured, not weakly protected. Coding it as zero would invent a finding.
 
-**Current state: the score uses three of the five dimensions.** Term, focus and
-scale are built. Quality and breadth exist only at drug level so far, and the
-script reports this rather than letting the score look complete.
+**Current state: the sponsor-level score uses two of the five dimensions,
+focus and scale.** Term is designed but cannot yet be computed at sponsor level
+from the extracted patent data, and quality and breadth exist only at drug
+level so far. A sponsor is scored only when both components are present, and
+the script reports the missing dimensions rather than letting the score look
+complete.
 
 ## Matching sponsors to patent owners
 
@@ -410,7 +484,14 @@ giving precision of **0.979**. See `data/validation/HOW_TO_ADJUDICATE.md`.
 
 ## Known limits
 
-- The patent score uses **three of five** dimensions.
+- The sponsor-level patent score uses **two of five** dimensions.
+- Site count and eligibility length come from the 2026 registry snapshot, not
+  the protocol in force when each trial started. A trial that stopped early may
+  never have opened every site it lists, so this is the most likely remaining
+  leak.
+- After recalibration the model still under-predicts risk in the 2016-2019 test
+  years (22.1% predicted against 25.2% observed), because the termination rate
+  drifts upward over time. Its scores should be read as risk bands.
 - **64.3%** of industry trials have a measured sponsor portfolio; the rest are
   recorded as unmeasured rather than zero, which matters because coding an
   unmeasured sponsor as weak would manufacture a finding.

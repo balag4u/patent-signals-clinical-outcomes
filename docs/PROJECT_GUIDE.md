@@ -56,9 +56,10 @@ score for portfolio managers, not a drug.
 ### What the answer turned out to be
 
 **Patents do not help.** Adding the company-level patent measures to the
-prediction model changes its accuracy by -0.0002, with a p-value of 0.93. A
-p-value is the chance of seeing a result this large if there were really no
-effect, so 0.93 is what pure noise looks like.
+prediction model changes its accuracy by +0.0018, with a p-value of 0.24, and
+in the tuned final model the patent measures together add +0.0017, with a
+p-value of 0.46. A p-value is the chance of seeing a result this large if there
+were really no effect, so values this high are what pure noise looks like.
 
 Trial size and sponsor experience carry the signal instead. The number of sites
 a trial registers is the strongest single predictor.
@@ -97,6 +98,14 @@ A few of those names:
 - **Biologic** means a medicine made from living cells, such as an antibody,
   rather than manufactured by chemistry.
 - **Biosimilar** is the biologic equivalent of a generic.
+
+The written reports count **eight** sources rather than ten, because two of these
+do not feed the analysis directly: the openFDA substance registry serves only
+the drug-name matching, and Medicaid is retrieved but used in no model. FAERS is
+also kept as context rather than as a predictor. Reports exist only for drugs
+already on the market, which repeats the approval problem described in section
+5, and the number of reports grows with sales and company size, so a safety
+burden is not comparable between a large and a small sponsor.
 
 ### How they join
 
@@ -152,6 +161,8 @@ uses.
 | `prep_02_orangebook.py` | Counts patents per application, separating original compound patents from later method-of-use ones, and keeps the patent-to-application list | `orangebook_ip.parquet` |
 | `prep_03_drugsatfda.py` | Extracts priority review, orphan designation and new-drug status | `drugsatfda_regulatory.parquet` |
 | `prep_04_faers.py` | Removes duplicate safety reports, then computes how often each drug and side effect appear together relative to chance | `faers_*.parquet` |
+| `prep_04b_faers_recompute.py` | Recomputes those measures from the saved counts, correcting a faulty first calculation | `faers_drug_burden.parquet` |
+| `prep_04c_sponsor_safety.py` | Links safety burden to the trial sponsor through each trial's resolved ingredient | `faers_sponsor_burden.parquet` |
 | `prep_05_medicaid.py` | Aggregates 56 million prescription rows to product-year totals | `medicaid_product_year.parquet` |
 | `prep_06_mesh_areas.py` | Groups trials into six disease areas for RQ4 | adds `therapeutic_area` |
 | `prep_07_purplebook.py` | Parses biologic products and flags biosimilars | `purplebook_biologics.parquet` |
@@ -351,9 +362,12 @@ score, so it is kept as a separate predictor.
 unmeasured, not weakly protected. Coding it as zero would invent a finding, so
 those trials leave the comparison and the exclusion is reported.
 
-> **Current state: three of the five dimensions are built.** Term, focus and
-> scale have data behind them. Quality and breadth exist only at drug level so
-> far. The script reports this rather than letting the score look complete.
+> **Current state: two of the five dimensions are built at sponsor level,
+> focus and scale.** Term is designed but cannot yet be computed for a sponsor
+> from the extracted patent data, and quality and breadth exist only at drug
+> level so far. A sponsor is scored only when both built components are present,
+> and the script reports the missing dimensions rather than letting the score
+> look complete.
 
 ### The trap, and why it matters most
 
@@ -362,7 +376,10 @@ Run the same RQ1 comparison on the two patent routes and they disagree:
 | Patent measure | Who can be measured | Difference in stop rate | p-value |
 |---|---|---|---|
 | Orange Book, drug level | only drugs that won approval | **-3.64 points** | 0.0000001 |
-| Company portfolio | every sponsor in the list | **+0.11 points** | 0.90 |
+| Company portfolio | every sponsor in the list | **-0.11 points** | 0.95 |
+
+The company-level p-value allows for trials run by the same sponsor being
+related rather than independent pieces of evidence (section 6).
 
 The first looks like a strong finding. It is not, because of **who can be
 measured at all**. The Orange Book lists patents only for drugs that already
@@ -412,8 +429,11 @@ yes-or-no form of the variable is almost constant and only the continuous
 scores enter the model. A looser measure of a real effect should still show
 part of it, so this is a conservative test rather than a void one.
 
-What remains is a difference of 0.11 percentage points with a confidence
-interval from -1.44 to +1.22, against a sample able to detect 1.90 points. The
+What remains is a difference of -0.11 percentage points. Allowing for trials
+being grouped within 170 sponsors, its 95% confidence interval runs from -3.54 to
++3.32, and the smallest difference the comparison could detect four times in
+five is 4.9 points. A five-point effect, the size the study was designed to
+find, is ruled out; a smaller one is not. The
 estimate sits on either side of zero depending on which companies are measured
 while staying equally far from significance, which is how an estimate behaves
 when the quantity it estimates is zero.
@@ -438,28 +458,50 @@ a different minimum number of trials. The study has to be big enough for **all
 four**, so the requirement is the largest of the four.
 
 Everything is anchored on a **measured** termination rate of 0.2217, that is
-8,742 stopped out of 39,437, rather than an assumed one.
+8,742 stopped out of 39,437, rather than an assumed one. Every calculation uses
+a 5% significance level and 80% power, meaning a real effect of the stated size
+would be found four times in five.
 
-| RQ | Test | Why that test | Minimum |
-|---|---|---|---|
-| RQ1 | Two-proportion power analysis | Comparing two group rates | 1,166 |
-| RQ2 | Events per variable | Model stability depends on how many events occur, not total size | 2,031 |
-| RQ3 | Schoenfeld formula | Survival analysis is driven by the number of events | 811 |
-| RQ4 | Confidence interval method | Needs precision *within* each of six groups | **4,422** |
+| RQ | Test | Why that test | Minimum | Available |
+|---|---|---|---|---|
+| RQ1 | Two-group comparison of rates, enlarged for clustering | Compares two group rates; trials of one sponsor are related | **9,786** | 12,712 |
+| RQ2 | Power to detect a gain in AUC between two models scored on the same trials | The patent question is whether one model beats another | 3,753 | 12,717 test trials |
+| RQ3 | Schoenfeld formula, for each of the two ways a trial can end | Survival analysis is driven by the number of events | 2,847 | 12,658 |
+| RQ4 | Precision within each disease area, plus power for the difference between areas | Needs both a precise rate per area and enough data to compare areas | 6,504 | 12,712 |
 
-**Requirement: 4,422. Available: 39,437, nearly nine times over.**
+**Requirement: 9,786 usable trials, set by RQ1.** "Usable" means counted
+after every exclusion, inside the group of trials each question is actually
+tested on, not the raw download.
 
-RQ4 sets the bar, and that is informative in itself: estimating six subgroups
-precisely is far more demanding than any single pooled test. A study powered
-only for overall effects could not support the subgroup claims practitioners
-most want.
+**Why RQ1 sets the bar.** Trials run by the same sponsor are related: they
+share the sponsor's patent position, its management and its funding, so 100
+trials from one company carry less information than 100 trials from 100
+companies. The size of that loss is measured from the data. Outcomes within a
+sponsor are slightly alike (an intraclass correlation of 0.0445), but sponsors
+run many trials each (72.9 on a size-weighted average), and together those
+inflate the requirement by a factor of 4.20. Each group needs 4,893 trials, and
+each holds 6,356.
 
-Having nine times the minimum is what lets the null result be stated precisely.
-For RQ1 the study could have detected a true gap of 1.90 percentage points and
-found 0.11. "We found no effect" and "we could not have found one" look
-identical in a p-value and mean opposite things.
+**A correction to earlier versions.** The synopsis and the interim report used
+the one-group form of the RQ1 formula, which gives half the true requirement:
+583 trials per group instead of 1,165 before clustering. The RQ2 calculation
+also changed. It used a rule of thumb, ten stopped trials per predictor, which
+guards the stability of a model's coefficients but says nothing about power. It
+now asks directly how many trials are needed to detect a gain of 0.01 in AUC,
+the patent question RQ2 actually poses.
 
-Reproduce the derivation any time:
+**The one shortfall.** Within the trials that can be measured on patents,
+cardiovascular and infectious disease each hold fewer than the 542 trials per
+patent group that the RQ4 comparison needs, so the disease-area result is
+treated as exploratory.
+
+Having four times the minimum overall is what lets the null result be stated
+with some precision. For RQ1 the comparison could have detected a true gap of
+4.9 percentage points and found 0.11. "We found no effect" and "we could not
+have found one" look identical in a p-value and mean opposite things.
+
+Reproduce the derivation any time; every intermediate number is written to
+`docs/sample_size.json`:
 
 ```bash
 python scripts/analysis/sample_size.py
@@ -467,7 +509,62 @@ python scripts/analysis/sample_size.py
 
 ---
 
-## 7. Running it
+## 7. Final-stage models and the scoring tool
+
+`scripts/analysis/final_analysis.py` takes the analysis from preliminary models
+to a selected, tested and deployable one.
+
+**How the test is kept honest.** Four kinds of model are tried, each with a
+small grid of settings, 32 combinations in all. Each is trained on trials that
+started in 2008-2013 and judged on 2014-2015. The best setting of each kind is
+then retrained on 2008-2015 and scored **once** on the 12,717 trials that
+started in 2016-2019. The cut-off for flagging a trial and the correction to
+its probability are also fixed on 2014-2015, so nothing about the test years
+influences any choice.
+
+| Model | AUC on its training data | AUC on the test years |
+|---|---|---|
+| Gradient-boosted trees (**selected**) | 0.746 | **0.669** |
+| Random forest | 0.810 | 0.671 |
+| Neural network (multilayer perceptron) | 0.690 | 0.631 |
+| Penalised logistic regression | 0.631 | 0.619 |
+
+Every model does better on the trials it was trained on than on new ones; that
+gap is why only the test years count. The random forest edges the boosted model
+by 0.002 on the test years, a difference random noise produces easily
+(p = 0.43). The boosted model was chosen by the rule fixed in advance and is
+also better calibrated.
+
+**What the score delivers.** Ranked by predicted risk, the top tenth of test
+trials were stopped 50.7% of the time, twice the 25.2% average, and the top
+fifth contain 34.8% of all terminations. That is a triage tool: it tells a
+reviewer where to look first, not which trial will fail.
+
+**Why the probabilities are corrected.** The models give extra weight to stopped
+trials during training so they do not ignore the rarer outcome. That inflates
+every raw probability, to an average of 46.6% against 25.2% observed. One offset,
+estimated on 2014-2015, pulls them back. The Brier score, the average squared
+error of a predicted probability, falls from 0.222 to 0.174, better than the
+0.191 of a forecast that ignores the trial altogether.
+
+**What drives the score.** SHAP values split each prediction into the
+contribution of each predictor. Trial design accounts for 58.4% of the total,
+sponsor history 16.9%, and the patent and biosimilar measures 16.4%. The model
+does use the patent measures, but removing them costs nothing, because the same
+information is available from correlated sponsor and regulatory measures.
+
+**The scoring tool.** `models/termination_model.joblib` holds the selected
+model with its correction, cut-off and reference risk bands.
+`scripts/deploy/score_trials.py` applies it to any table of trials and writes,
+for each one, a calibrated risk, a risk band from 1 to 10, a review flag, and
+the three predictors that moved its score most. Run on the worked example in the
+final report, trial NCT03038477, it returns a risk of 39.4% in the top band,
+driven by the sponsor's 62.5% past completion rate, a single site and long
+eligibility criteria.
+
+---
+
+## 8. Running it
 
 ### Everything needed is already in the repository
 
@@ -477,12 +574,16 @@ cd patent-signals-clinical-outcomes
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-lock.txt
 
-python scripts/analysis/interim_eda.py
+python scripts/analysis/final_analysis.py   # runs interim_eda.py first
+python scripts/analysis/sample_size.py
 ```
 
-That rebuilds every figure and statistic and rewrites
-`docs/interim_results.json`, which is the file the written report reads from.
-It takes about three minutes, with no passwords and no internet connection.
+That rebuilds every figure and statistic and rewrites the three files the
+written reports read from: `docs/interim_results.json`,
+`docs/final_results.json` and `docs/sample_size.json`. It takes about seven
+minutes on a laptop processor, with no graphics card, no passwords and no
+internet connection. `interim_eda.py` alone rebuilds the interim-stage results
+in about three minutes.
 
 Check the data loads as expected:
 
@@ -499,8 +600,8 @@ print(f'frame {len(f):,}  termination rate {f.is_terminated.mean():.4f}')"
 
 Numbers typed into a document by hand drift the moment the analysis is re-run,
 and afterwards nobody can tell which version of the code produced which figure.
-So every statistic is written to `docs/interim_results.json` and the report is
-built from it. If the analysis changes, the document changes with it, or it
+So every statistic is written to one of the three results files and the
+reports are built from them. If the analysis changes, the document changes with it, or it
 does not change at all. The two cannot quietly disagree.
 
 ### Re-running the patent queries
@@ -515,12 +616,21 @@ which would consume an entire month's free allowance in one query.
 
 ---
 
-## 8. What is not finished
+## 9. What is not finished
 
 Stated plainly, because a reader should not have to discover these.
 
-- **The patent score uses three of five dimensions.** Quality and breadth exist
-  only at drug level.
+- **The sponsor patent score uses two of five dimensions.** Term is not yet
+  computable at sponsor level, and quality and breadth exist only at drug level.
+- **Two predictors come from a 2026 snapshot.** Site count and eligibility
+  length are read from the current registry record, not the protocol in force
+  when each trial started. A trial that stopped early may never have opened
+  every site it lists, so this is the most likely remaining leak.
+- **Risk drifts over time.** After correction the model predicts 22.1% risk in
+  the 2016-2019 test years against 25.2% observed, so its scores should be read
+  as bands and the correction refreshed regularly.
+- **RQ4 is short of data in two areas.** Cardiovascular and infectious disease
+  hold fewer than the 542 trials per patent group the interaction test needs.
 - **64.3% of industry trials have a measured sponsor portfolio.** The rest are
   recorded as unmeasured rather than zero.
 - **Patent owners are matched by name.** The recognised alternative is a
