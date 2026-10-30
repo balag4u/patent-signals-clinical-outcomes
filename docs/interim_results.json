@@ -634,19 +634,31 @@
     }
   ],
   "rq1_clustered": {
-    "cluster_variable": "FDA application number (nct_id where unlinked)",
-    "n_clusters": 7423,
+    "cluster_variable": "sponsor corporate group (registry sponsor name where unassigned)",
+    "n_clusters": 170,
     "n_trials": 12712,
-    "trials_per_cluster": 1.71,
+    "trials_per_cluster": 74.78,
     "odds_ratio_ip_strong": 0.9925,
     "or_ci95": [
-      0.8843,
-      1.114
+      0.7858,
+      1.2537
     ],
-    "z": -0.1274,
-    "p_value": 0.8986072210920817,
+    "z": -0.063,
+    "p_value": 0.9497829937526504,
     "naive_p_value": 0.871244216774296,
-    "se_inflation_design_effect": 1.62
+    "se_inflation_design_effect": 6.62,
+    "risk_difference": -0.0011,
+    "rd_ci95": [
+      -0.0354,
+      0.0332
+    ],
+    "rd_se": 0.0175,
+    "rd_p_value": 0.9498196521226696,
+    "minimum_detectable_difference": 0.049,
+    "icc": 0.0445,
+    "mean_cluster_size_m0": 72.9,
+    "design_effect_from_icc": 4.2,
+    "largest_cluster_share": 0.0827
   },
   "rq1": {
     "n_computable": 12712,
@@ -1218,21 +1230,33 @@
     "auc_unchanged": 0.664
   },
   "rq1_selection": {
-    "observed_n": 14034,
-    "unobserved_n": 25403,
-    "p_term_unobserved": 0.2288,
+    "observed_n": 12712,
+    "unobserved_n": 26725,
+    "p_term_unobserved": 0.2421,
     "ipw": {
-      "method": "inverse probability of observability, propensity on design and sponsor blocks, weights trimmed to [0.02, 0.98]",
-      "risk_difference": 0.0207,
-      "unweighted_risk_difference": 0.0137,
-      "effective_n": 38653.9,
-      "assumption": "observability ignorable given the design and sponsor blocks"
+      "method": "inverse probability of observability among INDUSTRY trials, propensity on the design block and sponsor history, probabilities trimmed to [0.02, 0.98]",
+      "target_population": "industry-sponsored trials",
+      "why_not_whole_frame": "positivity fails: non-industry trials are almost never measurable, so no weight can represent them",
+      "industry_n": 19729,
+      "industry_measured_n": 12695,
+      "risk_difference": 0.0061,
+      "unweighted_risk_difference_industry": -0.0011,
+      "unweighted_risk_difference": -0.0011,
+      "effective_n": 18381.1,
+      "assumption": "observability ignorable given design and sponsor history, within industry sponsors"
     },
     "worst_case_bounds": {
+      "measure": "sponsor-level index (the RQ1 primary)",
       "method": "outcome is observed for all 39,437 trials and only the IP class is unknown, so the unobserved are assigned wholly to one group and then the other; no ignorability assumption",
-      "risk_difference_lower": -0.0793,
-      "risk_difference_upper": 0.0948,
+      "risk_difference_lower": -0.0519,
+      "risk_difference_upper": 0.0506,
       "sign_identified": false
+    },
+    "worst_case_bounds_industry": {
+      "unobserved_industry_n": 7034,
+      "p_term_unobserved_industry": 0.2117,
+      "risk_difference_lower": -0.0182,
+      "risk_difference_upper": 0.0166
     }
   },
   "unresolved_sensitivity": {
@@ -1493,64 +1517,63 @@
     "cox_completion": {
       "n": 12658,
       "events": 10425,
-      "n_clusters": 7381,
-      "standard_errors": "cluster-robust on the FDA application",
+      "n_clusters": 170,
+      "standard_errors": "cluster-robust on the sponsor corporate group",
       "concordance": 0.6095,
       "ph_test_global_p": 0.0,
       "ph_violations_p05": [
         "is_biologic",
         "is_industry",
-        "n_locations",
-        "sponsor_prior_trials"
+        "n_locations"
       ],
       "coefficients": {
         "ip_strong": {
           "hr": 1.0518,
           "ci95": [
-            0.9856,
-            1.1224
+            0.919,
+            1.2037
           ],
-          "p": 0.12758630059971418
+          "p": 0.46315482843530154
         },
         "is_phase3": {
           "hr": 1.2003,
           "ci95": [
-            1.1378,
-            1.2662
+            1.1003,
+            1.3094
           ],
-          "p": 2.192998078871539e-11
+          "p": 3.8987134483653656e-05
         },
         "n_locations": {
           "hr": 0.9969,
           "ci95": [
-            0.9965,
-            0.9974
+            0.9964,
+            0.9975
           ],
-          "p": 9.73754420350176e-43
+          "p": 2.7172242040007307e-28
         },
         "is_industry": {
           "hr": 1.5336,
           "ci95": [
-            0.9803,
-            2.3993
+            1.394,
+            1.6872
           ],
-          "p": 0.06110868367154105
+          "p": 1.5993230949266942e-18
         },
         "is_biologic": {
           "hr": 0.7922,
           "ci95": [
-            0.7069,
-            0.8878
+            0.6792,
+            0.9241
           ],
-          "p": 6.142483297204496e-05
+          "p": 0.003021513999991203
         },
         "sponsor_prior_trials": {
           "hr": 0.9999,
           "ci95": [
-            0.9998,
-            1.0
+            0.9996,
+            1.0003
           ],
-          "p": 0.18833827265614808
+          "p": 0.6700377009561491
         }
       },
       "piecewise_ip_strong": {
@@ -1560,19 +1583,19 @@
             "events": 6238,
             "hr": 1.0627,
             "ci95": [
-              0.9702,
-              1.1641
+              0.8794,
+              1.2843
             ],
-            "p": 0.19069916434462897
+            "p": 0.5289370416716925
           },
           "over 24 months": {
             "events": 4187,
             "hr": 1.0691,
             "ci95": [
-              0.996,
-              1.1476
+              0.9591,
+              1.1918
             ],
-            "p": 0.0644429326622687
+            "p": 0.2276912258375003
           }
         },
         "same_direction": true
@@ -1581,53 +1604,54 @@
     "cox_termination": {
       "n": 12658,
       "events": 2233,
-      "n_clusters": 7381,
-      "standard_errors": "cluster-robust on the FDA application",
+      "n_clusters": 170,
+      "standard_errors": "cluster-robust on the sponsor corporate group",
       "concordance": 0.6485,
       "ph_test_global_p": 0.0,
       "ph_violations_p05": [
+        "is_industry",
         "n_locations"
       ],
       "coefficients": {
         "ip_strong": {
           "hr": 1.0449,
           "ci95": [
-            0.9399,
-            1.1616
+            0.8715,
+            1.2528
           ],
-          "p": 0.41616009553333766
+          "p": 0.6351158348148209
         },
         "is_phase3": {
           "hr": 0.7212,
           "ci95": [
-            0.651,
-            0.7989
+            0.6495,
+            0.8008
           ],
-          "p": 3.8845975313506797e-10
+          "p": 9.33096585211463e-10
         },
         "n_locations": {
           "hr": 0.9965,
           "ci95": [
-            0.9952,
-            0.9978
+            0.9953,
+            0.9977
           ],
-          "p": 9.762283606768073e-08
+          "p": 7.248052342252686e-09
         },
         "is_industry": {
           "hr": 1.4306,
           "ci95": [
-            0.3678,
-            5.5644
+            1.2344,
+            1.6579
           ],
-          "p": 0.605397492676248
+          "p": 1.95612198338684e-06
         },
         "is_biologic": {
           "hr": 0.5964,
           "ci95": [
-            0.4986,
-            0.7133
+            0.487,
+            0.7303
           ],
-          "p": 1.5223771289728127e-08
+          "p": 5.701751274180373e-07
         },
         "sponsor_prior_trials": {
           "hr": 1.0003,
@@ -1635,7 +1659,7 @@
             1.0001,
             1.0005
           ],
-          "p": 0.0007068142586348642
+          "p": 0.018325865224279012
         }
       },
       "piecewise_ip_strong": {
@@ -1645,54 +1669,146 @@
             "events": 1285,
             "hr": 1.0047,
             "ci95": [
-              0.8844,
-              1.1415
+              0.8327,
+              1.2123
             ],
-            "p": 0.9419745851616428
+            "p": 0.960568427231469
           },
           "over 24 months": {
             "events": 948,
             "hr": 1.1379,
             "ci95": [
-              0.9767,
-              1.3257
+              0.9198,
+              1.4077
             ],
-            "p": 0.09741651252605475
+            "p": 0.23407425552064767
           }
         },
         "same_direction": true
       }
+    },
+    "fine_gray": {
+      "method": "Fine-Gray subdistribution hazards, fitted exactly as a Cox model with competing-event trials retained in the risk set (complete follow-up, no censoring); cluster-robust on the sponsor corporate group",
+      "completion": {
+        "n": 12658,
+        "events": 10425,
+        "shr": 1.026,
+        "ci95": [
+          0.9142,
+          1.1514
+        ],
+        "p": 0.6628680473097567,
+        "industry_shr": 1.3458
+      },
+      "termination": {
+        "n": 12658,
+        "events": 2233,
+        "shr": 0.98,
+        "ci95": [
+          0.8114,
+          1.1836
+        ],
+        "p": 0.83376104321523,
+        "industry_shr": 1.0213
+      }
+    },
+    "event_coding": {
+      "completion_event": "overall_status COMPLETED, time = primary completion date minus start date",
+      "competing_event": "overall_status TERMINATED, WITHDRAWN or SUSPENDED, time = recorded primary completion (stop) date minus start date",
+      "censored": "none: unresolved statuses (RECRUITING, ACTIVE_NOT_RECRUITING, NOT_YET_RECRUITING, ENROLLING_BY_INVITATION, UNKNOWN) are outside the frame",
+      "n_by_status": {
+        "COMPLETED": 10425,
+        "TERMINATED": 1883,
+        "WITHDRAWN": 344,
+        "SUSPENDED": 6
+      }
     }
   },
+  "rq4_cells": [
+    {
+      "area": "Cardiovascular",
+      "n_strong": 251,
+      "n_weak": 364,
+      "terminated_strong": 46,
+      "terminated_weak": 68,
+      "p_strong": 0.1833,
+      "p_weak": 0.1868
+    },
+    {
+      "area": "Infectious Disease",
+      "n_strong": 383,
+      "n_weak": 556,
+      "terminated_strong": 46,
+      "terminated_weak": 81,
+      "p_strong": 0.1201,
+      "p_weak": 0.1457
+    },
+    {
+      "area": "Metabolic & Endocrine",
+      "n_strong": 755,
+      "n_weak": 607,
+      "terminated_strong": 85,
+      "terminated_weak": 58,
+      "p_strong": 0.1126,
+      "p_weak": 0.0956
+    },
+    {
+      "area": "Neurology & Psychiatry",
+      "n_strong": 998,
+      "n_weak": 932,
+      "terminated_strong": 209,
+      "terminated_weak": 221,
+      "p_strong": 0.2094,
+      "p_weak": 0.2371
+    },
+    {
+      "area": "Oncology",
+      "n_strong": 1346,
+      "n_weak": 1280,
+      "terminated_strong": 353,
+      "terminated_weak": 292,
+      "p_strong": 0.2623,
+      "p_weak": 0.2281
+    },
+    {
+      "area": "Other",
+      "n_strong": 2623,
+      "n_weak": 2617,
+      "terminated_strong": 393,
+      "terminated_weak": 419,
+      "p_strong": 0.1498,
+      "p_weak": 0.1601
+    }
+  ],
   "rq4_clustered": {
-    "n_clusters": 7423,
-    "wald_chi2": 7.2565,
+    "n_clusters": 170,
+    "wald_chi2": 5.5686,
     "df": 5,
-    "p_value": 0.20225166344533083,
+    "p_value": 0.35048092232158345,
     "interaction_terms": {
       "ip_strong:C(therapeutic_area)[T.Infectious Disease]": {
         "or": 0.7451,
-        "p": 0.4154039744002568,
+        "p": 0.4529126683722725,
         "p_holm": 1.0
       },
       "ip_strong:C(therapeutic_area)[T.Metabolic & Endocrine]": {
         "or": 1.1878,
-        "p": 0.6199486863273123,
+        "p": 0.7021867123733245,
         "p_holm": 1.0
       },
       "ip_strong:C(therapeutic_area)[T.Neurology & Psychiatry]": {
         "or": 0.8418,
-        "p": 0.5648380603763083,
+        "p": 0.5217237304840088,
         "p_holm": 1.0
       },
       "ip_strong:C(therapeutic_area)[T.Oncology]": {
         "or": 1.1973,
-        "p": 0.5281791419209884,
+        "p": 0.512504258954633,
         "p_holm": 1.0
       },
       "ip_strong:C(therapeutic_area)[T.Other]": {
         "or": 0.9001,
-        "p": 0.7002889771714608,
+        "p": 0.7137112161817085,
         "p_holm": 1.0
       }
     }

@@ -264,6 +264,17 @@ frame = frame.merge(
 if GENETIC_AVAILABLE:
     frame = frame.merge(genetic, on="nct_id", how="left")
 
+# The sponsor-level patent measure belongs to the sponsor's corporate group, so all
+# trials of one group share a single patent position and are not independent pieces
+# of evidence. The group is carried here so the RQ1, RQ3 and RQ4 standard errors can
+# be clustered on it. Where no group was assigned the registry sponsor name stands in.
+_grp = pd.read_parquet(DATA / "sponsor_ip_features.parquet",
+                       columns=["nct_id", "corporate_group"]).drop_duplicates("nct_id")
+frame = frame.merge(_grp, on="nct_id", how="left")
+_cg = frame.corporate_group.astype("string").str.strip()
+frame["sponsor_cluster"] = _cg.where(_cg.notna() & _cg.ne(""),
+                                     "SPONSOR:" + frame.lead_sponsor.astype(str))
+
 results["linkage"] = {
     "resolved_to_ingredient": int(frame.ingredient.notna().sum()),
     "resolved_to_ingredient_pct": round(float(frame.ingredient.notna().mean() * 100), 2),
@@ -606,13 +617,16 @@ z_sel, p_sel = proportions_ztest(
     [int(frame.loc[obs, "is_terminated"].sum()), int(frame.loc[~obs, "is_terminated"].sum())],
     [int(obs.sum()), int((~obs).sum())],
 )
-# The drug-level index is a property of the DRUG, so every trial of the same drug
-# carries an identical value and the 14,035 trials are not 14,035 independent
-# observations. The naive z above treats them as if they were; the clustered fit
-# below is what the standard errors should reflect.
+# The sponsor-level index is a property of the SPONSOR, so every trial a corporate
+# group runs in a given year carries the same value, and trials of one sponsor share
+# its management, pipeline and funding. The 12,712 trials are therefore not 12,712
+# independent observations. The naive z above treats them as if they were; the
+# clustered fit below is what the standard errors should reflect. Clustering on the
+# FDA application, as an earlier version did, is the right unit for the drug-level
+# index but the wrong one for the sponsor-level index.
 import statsmodels.formula.api as smf
 
-rq1["cluster"] = rq1.appl_no.where(rq1.appl_no.notna(), "NCT:" + rq1.nct_id)
+rq1["cluster"] = rq1.sponsor_cluster
 cl = smf.logit("is_terminated ~ ip_strong", data=rq1).fit(
     disp=0, cov_type="cluster", cov_kwds={"groups": rq1.cluster})
 naive = smf.logit("is_terminated ~ ip_strong", data=rq1).fit(disp=0)
@@ -621,7 +635,7 @@ or_lo, or_hi = np.exp(cl.conf_int().loc["ip_strong"].to_numpy())
 design_effect = float((cl.bse["ip_strong"] / naive.bse["ip_strong"]) ** 2)
 
 results["rq1_clustered"] = {
-    "cluster_variable": "FDA application number (nct_id where unlinked)",
+    "cluster_variable": "sponsor corporate group (registry sponsor name where unassigned)",
     "n_clusters": int(rq1.cluster.nunique()),
     "n_trials": int(len(rq1)),
     "trials_per_cluster": round(float(len(rq1) / rq1.cluster.nunique()), 2),
@@ -632,9 +646,42 @@ results["rq1_clustered"] = {
     "naive_p_value": float(naive.pvalues["ip_strong"]),
     "se_inflation_design_effect": round(design_effect, 2),
 }
-print(f"  clustered on {rq1.cluster.nunique():,} applications: OR = {or_ip:.3f} "
+print(f"  clustered on {rq1.cluster.nunique():,} sponsor groups: OR = {or_ip:.3f} "
       f"[{or_lo:.3f}, {or_hi:.3f}], p = {cl.pvalues['ip_strong']:.2e} "
       f"(naive p = {naive.pvalues['ip_strong']:.2e}, design effect {design_effect:.1f}x)")
+
+# The same contrast on the risk-difference scale, from a linear probability model
+# with the same cluster-robust covariance, so the interval and the smallest
+# detectable difference reported for RQ1 both reflect the clustering.
+lpm = smf.ols("is_terminated ~ ip_strong", data=rq1).fit(
+    cov_type="cluster", cov_kwds={"groups": rq1.cluster})
+rd_cl_se = float(lpm.bse["ip_strong"])
+# One-way ANOVA estimator of the intraclass correlation of the outcome within
+# sponsor groups, and the size-weighted mean cluster size m0, so the design effect
+# 1 + (m0 - 1) ICC can be stated for the sample size chapter.
+_g = rq1.groupby("cluster").is_terminated
+_k, _N = int(_g.ngroups), int(len(rq1))
+_ni = _g.size().to_numpy(float)
+_m0 = (_N - (_ni ** 2).sum() / _N) / (_k - 1)
+_ybar = float(rq1.is_terminated.mean())
+_msb = float((_ni * (_g.mean().to_numpy() - _ybar) ** 2).sum() / (_k - 1))
+_msw = float(((rq1.is_terminated - _g.transform("mean")) ** 2).sum() / (_N - _k))
+_icc = (_msb - _msw) / (_msb + (_m0 - 1) * _msw)
+results["rq1_clustered"].update({
+    "risk_difference": round(float(lpm.params["ip_strong"]), 4),
+    "rd_ci95": [round(float(lpm.conf_int().loc["ip_strong", 0]), 4),
+                round(float(lpm.conf_int().loc["ip_strong", 1]), 4)],
+    "rd_se": round(rd_cl_se, 5),
+    "rd_p_value": float(lpm.pvalues["ip_strong"]),
+    "minimum_detectable_difference": round((1.959964 + 0.8416212) * rd_cl_se, 4),
+    "icc": round(float(_icc), 4),
+    "mean_cluster_size_m0": round(float(_m0), 2),
+    "design_effect_from_icc": round(float(1 + (_m0 - 1) * _icc), 2),
+    "largest_cluster_share": round(float(_ni.max() / _N), 4),
+})
+print(f"  clustered RD = {lpm.params['ip_strong']:+.4f} "
+      f"[{lpm.conf_int().loc['ip_strong', 0]:+.4f}, {lpm.conf_int().loc['ip_strong', 1]:+.4f}]"
+      f"  ICC = {_icc:.4f}, m0 = {_m0:.1f}")
 
 results["rq1"] = {
     "n_computable": int(len(rq1)),
@@ -1053,16 +1100,30 @@ print(f"    offset {a_train:+.4f} (holdout-fitted {a_test:+.4f})  "
 # brackets the risk difference without any assumption at all.
 # ----------------------------------------------------------------------------
 print("\n[9b] RQ1 selection: inverse-probability weighting and worst-case bounds")
+# Run on the PRIMARY, sponsor-level measure, since that is the one RQ1 reports.
+# An earlier version ran it on the Orange Book measure after the primary had moved.
+#
+# The reweighting needs every kind of trial to have some chance of being measured.
+# Non-industry sponsors have essentially none (a university holds no commercial
+# portfolio to match), so no weighting can make measured trials stand in for them,
+# and a propensity model on the whole frame is separated by sponsor class. The
+# reweighting therefore targets INDUSTRY trials, where coverage is about two in
+# three. The worst-case bounds below need no such condition and use the whole frame.
+from sklearn.linear_model import LogisticRegression as _LR
+
 sel = frame.copy()
-sel["observed_ip"] = sel.ob_n_patents.notna().astype(int)
-sel_X = sel[DESIGN + SPONSOR].copy()
+sel["observed_ip"] = sel.ip_strong.notna().astype(int)
+ind = sel[sel.is_industry == 1].copy()
+_pcols = DESIGN + ["n_collaborators", "sponsor_prior_trials", "sponsor_prior_completion_rate"]
+sel_X = ind[_pcols].copy()
 sel_X = sel_X.fillna(sel_X.median(numeric_only=True))
-sel_fit = sm.Logit(sel.observed_ip.to_numpy(),
-                   sm.add_constant(sel_X.to_numpy(dtype=float))).fit(disp=0)
-pi_hat = np.clip(sel_fit.predict(sm.add_constant(sel_X.to_numpy(dtype=float))), 0.02, 0.98)
-sel["w"] = np.where(sel.observed_ip == 1, 1.0 / pi_hat, 0.0)
+_sx = StandardScaler().fit_transform(sel_X.to_numpy(dtype=float))
+_pm = _LR(C=1.0, max_iter=2000).fit(_sx, ind.observed_ip.to_numpy())
+pi_hat = np.clip(_pm.predict_proba(_sx)[:, 1], 0.02, 0.98)
+ind["w"] = np.where(ind.observed_ip == 1, 1.0 / pi_hat, 0.0)
+o_ind = ind[ind.observed_ip == 1]
+ws, ww = o_ind[o_ind.ip_strong == 1], o_ind[o_ind.ip_strong == 0]
 o = sel[sel.observed_ip == 1]
-ws, ww = o[o.ip_strong == 1], o[o.ip_strong == 0]
 
 
 def wmean(g):
@@ -1078,25 +1139,49 @@ p_s, p_w = float(o.loc[o.ip_strong == 1, "is_terminated"].mean()), float(o.loc[o
 rd_hi = ((n_s * p_s + n_unobs * p_unobs) / (n_s + n_unobs)) - p_w
 # Lower bound: the unobserved go to the weak group.
 rd_lo = p_s - ((n_w * p_w + n_unobs * p_unobs) / (n_w + n_unobs))
+# The same bounds within industry trials, the population the patent measure can reach.
+_ui = ind[ind.observed_ip == 0]
+_ni_u, _pi_u = len(_ui), float(_ui.is_terminated.mean())
+_ns_i, _nw_i = len(ws), len(ww)
+_ps_i, _pw_i = float(ws.is_terminated.mean()), float(ww.is_terminated.mean())
+rd_hi_ind = ((_ns_i * _ps_i + _ni_u * _pi_u) / (_ns_i + _ni_u)) - _pw_i
+rd_lo_ind = _ps_i - ((_nw_i * _pw_i + _ni_u * _pi_u) / (_nw_i + _ni_u))
 results["rq1_selection"] = {
     "observed_n": int(len(o)),
     "unobserved_n": n_unobs,
     "p_term_unobserved": round(p_unobs, 4),
     "ipw": {
-        "method": "inverse probability of observability, propensity on design and "
-                  "sponsor blocks, weights trimmed to [0.02, 0.98]",
+        "method": "inverse probability of observability among INDUSTRY trials, "
+                  "propensity on the design block and sponsor history, "
+                  "probabilities trimmed to [0.02, 0.98]",
+        "target_population": "industry-sponsored trials",
+        "why_not_whole_frame": "positivity fails: non-industry trials are almost "
+                               "never measurable, so no weight can represent them",
+        "industry_n": int(len(ind)),
+        "industry_measured_n": int(len(o_ind)),
         "risk_difference": round(rd_ipw, 4),
+        "unweighted_risk_difference_industry": round(
+            float(o_ind.loc[o_ind.ip_strong == 1, "is_terminated"].mean()
+                  - o_ind.loc[o_ind.ip_strong == 0, "is_terminated"].mean()), 4),
         "unweighted_risk_difference": round(p_s - p_w, 4),
-        "effective_n": round(float(o.w.sum()), 1),
-        "assumption": "observability ignorable given the design and sponsor blocks",
+        "effective_n": round(float(o_ind.w.sum()), 1),
+        "assumption": "observability ignorable given design and sponsor history, "
+                      "within industry sponsors",
     },
     "worst_case_bounds": {
+        "measure": "sponsor-level index (the RQ1 primary)",
         "method": "outcome is observed for all 39,437 trials and only the IP class "
                   "is unknown, so the unobserved are assigned wholly to one group "
                   "and then the other; no ignorability assumption",
         "risk_difference_lower": round(rd_lo, 4),
         "risk_difference_upper": round(rd_hi, 4),
         "sign_identified": bool(rd_lo < 0 and rd_hi < 0),
+    },
+    "worst_case_bounds_industry": {
+        "unobserved_industry_n": int(_ni_u),
+        "p_term_unobserved_industry": round(_pi_u, 4),
+        "risk_difference_lower": round(rd_lo_ind, 4),
+        "risk_difference_upper": round(rd_hi_ind, 4),
     },
 }
 print(f"  IPW risk difference {rd_ipw:+.4f} (unweighted {p_s - p_w:+.4f})")
@@ -1195,7 +1280,7 @@ results["rq3"] = {
 
 sv = surv[surv.ip_strong.notna()].copy()
 sv["ip_strong"] = sv.ip_strong.astype(int)
-sv["cluster"] = sv.appl_no.where(sv.appl_no.notna(), "NCT:" + sv.nct_id)
+sv["cluster"] = sv.sponsor_cluster
 fig, ax = plt.subplots(figsize=(6.4, 3.4))
 for lvl, lab, col in [(1, "Strong IP", BLUE), (0, "Weak IP", ORANGE)]:
     s = sv[sv.ip_strong == lvl]
@@ -1234,7 +1319,7 @@ for cause, name in [(1, "completion"), (2, "termination")]:
         "n": int(len(cx)),
         "events": int(cx.event.sum()),
         "n_clusters": int(cx.cluster.nunique()),
-        "standard_errors": "cluster-robust on the FDA application",
+        "standard_errors": "cluster-robust on the sponsor corporate group",
         "concordance": round(float(cph.concordance_index_), 4),
         "ph_test_global_p": round(float(ph_tbl["p"].min()), 6),
         "ph_violations_p05": [str(i) for i, r in ph_tbl.iterrows() if r["p"] < 0.05],
@@ -1292,6 +1377,51 @@ for cause, name in [(1, "completion"), (2, "termination")]:
         f"{k} {v['hr']:.3f}" for k, v in pieces.items() if "hr" in v)
         + f"  (same direction: {_pw['same_direction']})")
 
+# Fine-Gray subdistribution hazards. The frame holds resolved trials only, so
+# follow-up is complete and no trial is censored. With complete data the Fine and
+# Gray (1999) estimator reduces exactly to an ordinary Cox fit in which a trial that
+# met the competing event stays in the risk set to the end of follow-up, because its
+# censoring weight is 1 throughout. It is fitted that way here: the competing
+# event's time is moved past the last observed time and coded as censored there.
+fine_gray = {}
+for cause, name in [(1, "completion"), (2, "termination")]:
+    cx = sv[["months_to_primary_completion", "status", "cluster"] + COVARS].dropna().copy()
+    t_end = float(cx.months_to_primary_completion.max()) + 1.0
+    other = cx.status != cause
+    cx["event"] = (~other).astype(int)
+    cx.loc[other, "months_to_primary_completion"] = t_end
+    cx = cx.drop(columns="status")
+    fgf = CoxPHFitter().fit(cx, duration_col="months_to_primary_completion",
+                            event_col="event", cluster_col="cluster")
+    rr = fgf.summary.loc["ip_strong"]
+    fine_gray[name] = {
+        "n": int(len(cx)),
+        "events": int(cx.event.sum()),
+        "shr": round(float(rr["exp(coef)"]), 4),
+        "ci95": [round(float(rr["exp(coef) lower 95%"]), 4),
+                 round(float(rr["exp(coef) upper 95%"]), 4)],
+        "p": float(rr["p"]),
+        "industry_shr": round(float(fgf.summary.loc["is_industry", "exp(coef)"]), 4),
+    }
+    print(f"  Fine-Gray {name}: sHR(ip_strong) = {rr['exp(coef)']:.4f} "
+          f"[{rr['exp(coef) lower 95%']:.4f}, {rr['exp(coef) upper 95%']:.4f}], "
+          f"p = {rr['p']:.3f}")
+results["rq3"]["fine_gray"] = {
+    "method": "Fine-Gray subdistribution hazards, fitted exactly as a Cox model with "
+              "competing-event trials retained in the risk set (complete follow-up, "
+              "no censoring); cluster-robust on the sponsor corporate group",
+    **fine_gray,
+}
+results["rq3"]["event_coding"] = {
+    "completion_event": "overall_status COMPLETED, time = primary completion date minus start date",
+    "competing_event": "overall_status TERMINATED, WITHDRAWN or SUSPENDED, time = recorded "
+                       "primary completion (stop) date minus start date",
+    "censored": "none: unresolved statuses (RECRUITING, ACTIVE_NOT_RECRUITING, "
+                "NOT_YET_RECRUITING, ENROLLING_BY_INVITATION, UNKNOWN) are outside the frame",
+    "n_by_status": {str(k): int(v) for k, v in
+                    sv.overall_status.value_counts().items()},
+}
+
 # ----------------------------------------------------------------------------
 # 10. RQ4 - moderation by therapeutic area, preliminary
 # ----------------------------------------------------------------------------
@@ -1301,7 +1431,20 @@ import statsmodels.formula.api as smf
 
 mod = frame[frame.ip_strong.notna()].copy()
 mod["ip_strong"] = mod.ip_strong.astype(int)
-mod["cluster"] = mod.appl_no.where(mod.appl_no.notna(), "NCT:" + mod.nct_id)
+mod["cluster"] = mod.sponsor_cluster
+# How many trials, and how many terminations, each therapeutic area holds in each
+# patent group within the subsample RQ4 actually runs on, so the per-stratum sample
+# size requirement can be checked against the usable data rather than the frame.
+_cells = (mod.groupby(["therapeutic_area", "ip_strong"])
+          .is_terminated.agg(["size", "sum"]).unstack("ip_strong"))
+results["rq4_cells"] = [
+    {"area": str(a),
+     "n_strong": int(r[("size", 1)]), "n_weak": int(r[("size", 0)]),
+     "terminated_strong": int(r[("sum", 1)]), "terminated_weak": int(r[("sum", 0)]),
+     "p_strong": round(float(r[("sum", 1)] / r[("size", 1)]), 4),
+     "p_weak": round(float(r[("sum", 0)] / r[("size", 0)]), 4)}
+    for a, r in _cells.iterrows()
+]
 F0 = "is_terminated ~ ip_strong + C(therapeutic_area) + is_phase3 + is_industry"
 F1 = "is_terminated ~ ip_strong * C(therapeutic_area) + is_phase3 + is_industry"
 m0 = smf.logit(F0, data=mod).fit(disp=0)
@@ -1309,8 +1452,8 @@ m1 = smf.logit(F1, data=mod).fit(disp=0)
 lr_stat = float(2 * (m1.llf - m0.llf))
 df_diff = int(m1.df_model - m0.df_model)
 
-# The likelihood ratio test assumes independent observations, which the drug-level
-# index violates. A Wald test on the same interaction terms under a cluster-robust
+# The likelihood ratio test assumes independent observations, which trials sharing a
+# sponsor violate. A Wald test on the same interaction terms under a cluster-robust
 # covariance is the comparable statistic that does not.
 m1c = smf.logit(F1, data=mod).fit(disp=0, cov_type="cluster",
                                   cov_kwds={"groups": mod.cluster})
